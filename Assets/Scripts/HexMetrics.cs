@@ -68,7 +68,7 @@ public static class HexMetrics
     public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);   // 阶梯y轴偏移占比
 
     public static Texture2D noiseSource;                                        // 使用柏林噪声生成的纹理
-    public const float cellPerturbStrength = 0f;                                // 扰乱幅度
+    public const float cellPerturbStrength = 4f;                                // 扰乱幅度
     public const float elevationPerturbStrength = 0.2f;                         // 高度(y)微扰
     public const float noiseScale = 0.003f;                                     // 用于对坐标进行缩放，以适应UV坐标，世界坐标->UV坐标（0~1）
 
