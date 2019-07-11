@@ -69,9 +69,8 @@ public class HexGridChunk : MonoBehaviour
         rivers.Apply();
         roads.Apply();
         water.Apply();
-        waterShore.Clear();
-        waterShore.Clear();
-        estuaries.Clear();
+        waterShore.Apply();
+        estuaries.Apply();
     }
 
     void Triangulate(HexCell cell)
@@ -1003,10 +1002,10 @@ public class HexGridChunk : MonoBehaviour
     /// <summary>
     /// 三角化沿岸水面扇形
     /// </summary>
-    /// <param name="direction"></param>
-    /// <param name="cell"></param>
-    /// <param name="neighbor"></param>
-    /// <param name="center"></param>
+    /// <param name="direction">当前处理的扇形方向</param>
+    /// <param name="cell">自身六边形</param>
+    /// <param name="neighbor">邻居六边形</param>
+    /// <param name="center">自身六边形中点</param>
     void TriangulateWaterShore(HexDirection direction, HexCell cell, HexCell neighbor, Vector3 center)
     {
         center.y = cell.WaterSurfaceY;
@@ -1030,7 +1029,7 @@ public class HexGridChunk : MonoBehaviour
 
         if (cell.HasRiverThroughEdge(direction))
         {
-            TriangulateEstuary(e1, e2);
+            TriangulateEstuary(e1, e2, cell.IncomingRiver == direction);
         }
         else
         {
@@ -1092,9 +1091,46 @@ public class HexGridChunk : MonoBehaviour
     /// <summary>
     /// 三角化河口
     /// </summary>
-    void TriangulateEstuary(EdgeVertices e1, EdgeVertices e2)
+    /// <param name="e1">自身纯色区扇形边（弧）</param>
+    /// <param name="e2">邻居纯色区扇形边（弧）</param>
+    /// <param name="incomingRiver">是否是流入河</param>
+    void TriangulateEstuary(EdgeVertices e1, EdgeVertices e2, bool incomingRiver)
     {
+        waterShore.AddTriangle(e2.v1, e1.v2, e1.v1);
+        waterShore.AddTriangle(e2.v5, e1.v5, e1.v4);
+        waterShore.AddTriangleUV(new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+        waterShore.AddTriangleUV(new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 0f));
 
+        // 河口顶点 : e2:     v1----v5
+        //            e1:      v2--v4
+        //
+        estuaries.AddQuad(e2.v1, e1.v2, e2.v2, e1.v3); 
+        estuaries.AddTriangle(e1.v3, e2.v2, e2.v4);
+        estuaries.AddQuad(e1.v3, e1.v4, e2.v4, e2.v5);
+
+        // 该UV的v用于判断离岸远近，u用于匹配瀑布水流消失插值（瀑布下方为1，扩散外围为0）
+        estuaries.AddQuadUV(new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0f));
+        estuaries.AddTriangleUV(new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(1f, 1f));
+        estuaries.AddQuadUV(new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f));
+
+        // 如果是流入河流的河口
+        if (incomingRiver)
+        {
+
+            // uv2 用于匹配河水流动, v为河水流动方向
+            // 由于是河口位于桥的下面，所以v坐标是0.8~1， 
+            // 由于水平面纯色区占比只有0.6，陆地水面交接处的桥是0.2+0.4，比陆地与陆地交接处的桥（0.2+0.2）大了50%,所以v坐标扩大50%，变成0.8~1.1
+            estuaries.AddQuadUV2(new Vector2(1.5f, 1f), new Vector2(0.7f, 1.15f),new Vector2(1f, 0.8f), new Vector2(0.5f, 1.1f));
+            estuaries.AddTriangleUV2( new Vector2(0.5f, 1.1f), new Vector2(1f, 0.8f),new Vector2(0f, 0.8f));
+            estuaries.AddQuadUV2(new Vector2(0.5f, 1.1f), new Vector2(0.3f, 1.15f), new Vector2(0f, 0.8f), new Vector2(-0.5f, 1f));
+        }
+        // 如果是流出河流的河口（翻转uv）
+        else
+        {
+            estuaries.AddQuadUV2(new Vector2(-0.5f, -0.2f), new Vector2(0.3f, -0.35f), new Vector2(0f, 0f), new Vector2(0.5f, -0.3f));
+            estuaries.AddTriangleUV2(new Vector2(0.5f, -0.3f), new Vector2(0f, 0f), new Vector2(1f, 0f));
+            estuaries.AddQuadUV2(new Vector2(0.5f, -0.3f), new Vector2(0.7f, -0.35f), new Vector2(1f, 0f), new Vector2(1.5f, -0.2f));
+        }
     }
 
     #endregion

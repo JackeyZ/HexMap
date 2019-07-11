@@ -72,16 +72,8 @@ public class HexCell : MonoBehaviour
                 position.y += (HexMetrics.SampleNoise(position).y * 2f - 1f) * HexMetrics.elevationPerturbStrength; // 高度噪声偏移
                 transform.localPosition = position;
 
-                // 如果流出河流方向的邻居高度比自己高则移除流出河流（不允许河流上坡）
-                if(hasOutgoingRiver && elevation < GetNeighbor(outgoingRiver).elevation)
-                {
-                    RemoveOutgoingRiver();
-                }
-                // 如果流入河流方向的邻居比自己矮则移除流入河流
-                if(hasIncomingRiver &&elevation > GetNeighbor(incomingRiver).elevation)
-                {
-                    RemoveIncomingRiver();
-                }
+                // 检查河流有效性
+                ValidateRivers();
 
                 // 高度改变判断六个方向的高度差是否太大，是否需要移除道路，
                 for (int i = 0; i < roads.Length; i++)
@@ -108,6 +100,9 @@ public class HexCell : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 纯色区颜色
+    /// </summary>
     public Color Color
     {
         get
@@ -234,6 +229,19 @@ public class HexCell : MonoBehaviour
             return hasIncomingRiver ? incomingRiver : outgoingRiver;
         }
     }
+
+    /// <summary>
+    /// 判断是否可以设置一条外流河
+    /// </summary>
+    /// <param name="neighbor"></param>
+    /// <returns></returns>
+    bool IsValidRiverDestination(HexCell neighbor)
+    {
+        // 如果自身高度大于等于邻居高度，如果自身是在水平面以下的，则表明水平面比邻居高，则可以有外流河
+        // 如果自身小于邻居高度，但自身水平面等于邻居高度，则可以有外流河
+        // 如果自身小于邻居高度，但自身水平面高于邻居高度，由于自然界不会出现这种特征，所以不允许产生外流河
+        return neighbor && (elevation >= neighbor.elevation || waterLevel == neighbor.elevation);
+    }
     #endregion
 
     #region 道路属性
@@ -284,6 +292,10 @@ public class HexCell : MonoBehaviour
                 return;
             }
             waterLevel = value;
+
+            // 检查河流有效性
+            ValidateRivers();
+
             Refresh();
         }
     }
@@ -419,11 +431,15 @@ public class HexCell : MonoBehaviour
             return;
         }
         HexCell neighbor = GetNeighbor(direction);
-        // 邻居不存在或者邻居比自己高则不生成河流
-        if (!neighbor || elevation < neighbor.elevation)
+        if (!IsValidRiverDestination(neighbor))
         {
             return;
         }
+        // 邻居不存在或者邻居比自己高则不生成河流
+        //if (!neighbor || elevation < neighbor.elevation)
+        //{
+        //    return;
+        //}
 
         // 移除之前的流出河流
         RemoveOutgoingRiver();
@@ -446,6 +462,21 @@ public class HexCell : MonoBehaviour
 
         // 清空对应方向的道路，并且刷新网格
         SetRoad((int)direction, false);
+    }
+
+    /// <summary>
+    /// 改变高度或水平面高度的时候需要用此方法检测河流有效性
+    /// </summary>
+    void ValidateRivers()
+    {
+        if(hasOutgoingRiver && !IsValidRiverDestination(GetNeighbor(outgoingRiver)))
+        {
+            RemoveOutgoingRiver();
+        }
+        if(hasIncomingRiver && !GetNeighbor(incomingRiver).IsValidRiverDestination(this))
+        {
+            RemoveIncomingRiver();
+        }
     }
     #endregion
 
