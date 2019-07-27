@@ -13,11 +13,23 @@ public class HexMapEditor : MonoBehaviour
 
     int activeWaterLevel;       // 水平面高度
 
+    int activeUrbanLevel = 0;   // 城市等级
+
+    int activeFarmLevel = 0;    // 农场等级
+
+    int activePlantLevel = 0;   // 植物等级
+
     bool applyColor = false;
 
     bool applyElevation = true;
 
     bool applyWaterLevel = false;
+
+    bool applyUrbanLevel = false;
+
+    bool applyFarmLevel = false;
+
+    bool applyPlantLevel = false;
 
     int brushSize = 0;          // 画刷大小
 
@@ -30,7 +42,7 @@ public class HexMapEditor : MonoBehaviour
     HexDirection dragDirection; // 拖拽方向
 
     HexCell previousCell;       // 用于在拖拽中记录上一个的六边形
-    
+
     void Awake()
     {
         SelectColor(-1);
@@ -94,6 +106,58 @@ public class HexMapEditor : MonoBehaviour
     public void SetApplyWaterLevel(bool toggle)
     {
         applyWaterLevel = toggle;
+    }
+
+    /// <summary>
+    /// 是否更变城市等级
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void SetApplyUrbanLevel(bool toggle)
+    {
+        applyUrbanLevel = toggle;
+    }
+
+    /// <summary>
+    /// 更改城市等级
+    /// </summary>
+    /// <param name="urbanLevel"></param>
+    public void SetUrbanLevel(float urbanLevel)
+    {
+        activeUrbanLevel = (int)urbanLevel;
+    }
+    /// <summary>
+    /// 是否更变农场等级
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void SetApplyFarmLevel(bool toggle)
+    {
+        applyFarmLevel = toggle;
+    }
+
+    /// <summary>
+    /// 更改农场等级
+    /// </summary>
+    /// <param name="urbanLevel"></param>
+    public void SetFarmLevel(float urbanLevel)
+    {
+        activeFarmLevel = (int)urbanLevel;
+    }
+    /// <summary>
+    /// 是否更变植物等级
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void SetApplyPlantLevel(bool toggle)
+    {
+        applyPlantLevel = toggle;
+    }
+
+    /// <summary>
+    /// 更改植物等级
+    /// </summary>
+    /// <param name="urbanLevel"></param>
+    public void SetPlantLevel(float urbanLevel)
+    {
+        activePlantLevel = (int)urbanLevel;
     }
 
     void HandleInput()
@@ -175,6 +239,24 @@ public class HexMapEditor : MonoBehaviour
             if (applyWaterLevel)
             {
                 cell.WaterLevel = activeWaterLevel;
+            }
+
+            // 单元城市密度
+            if (applyUrbanLevel)
+            {
+                cell.UrbanLevel = activeUrbanLevel;
+            }
+
+            // 单元农场密度
+            if (applyFarmLevel)
+            {
+                cell.FarmLevel = activeFarmLevel;
+            }
+
+            // 单元植物密度
+            if (applyPlantLevel)
+            {
+                cell.PlantLevel = activePlantLevel;
             }
 
             // 移除河流

@@ -77,6 +77,16 @@ public static class HexMetrics
     public const float streamBedElevationOffset = -1.75f;                       // 河床偏移高度
     public const float waterElevationOffset = -0.5f;                            // 河水（海水）平面偏移高度（由于高度微扰为0.5f,所以这里设置为-0.5f刚好，-0.6也可以）
 
+    public const int hashGridSize = 256;                                        // 散列网格大小256 * 256
+    static HexHash[] hashGrid;                                                  // 散列随机网络
+    public const float hashGridScale = 0.25f;                                   // 每四个单位坐标使用同一个值
+
+    static float[][] featureThresholds = {                                      // 三个等级的城市对应特征物体的概率门槛值分布
+        new float[] {0.0f, 0.0f, 0.4f},                                         // 表示随机值在0~0.4的时候生成等级1建筑，在0.4~1的时候不生成
+        new float[] {0.0f, 0.4f, 0.6f},                                         // 表示随机值在0~0.4的时候生成等级2建筑，在.0.4~0.6的时候生成等级1建筑，0.6~1不生成
+        new float[] {0.4f, 0.6f, 0.8f}                                          // 表示随机值在0~0.4的时候生成等级3建筑，在.0.4~0.6的时候生成等级2建筑，0.6~0.8生成等级1建筑，0.8~1不生成
+    };
+
     /// <summary>
     /// 根据方向获取三角面的第一个顶点
     /// </summary>
@@ -255,5 +265,51 @@ public static class HexMetrics
         //position.y += sample.y * 2 - 1;
         position.z += sample.z * 2 - 1;
         return position;
+    }
+
+    /// <summary>
+    /// 初始化散列随机网络
+    /// </summary>
+    /// <param name="seed"></param>
+    public static void InitializeHashGrid(int seed)
+    {
+        hashGrid = new HexHash[hashGridSize * hashGridSize];
+        Random.State currentState = Random.state;
+        Random.InitState(seed);             // 设置随机数种子
+        for (int i = 0; i < hashGrid.Length; i++)
+        {
+            hashGrid[i] = HexHash.Create(); 
+        }
+        Random.state = currentState;        // 创建完恢复默认的状态
+    }
+
+    /// <summary>
+    /// 散列随机网格取样方法
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public static HexHash SampleHashGrid(Vector3 position)
+    {
+        int x = (int)(position.x * hashGridScale) % hashGridSize;
+        if (x < 0)
+        {
+            x += hashGridSize;
+        }
+        int z = (int)(position.z * hashGridScale) % hashGridSize;
+        if (z < 0)
+        {
+            z += hashGridSize;
+        }
+        return hashGrid[x + z * hashGridSize];
+    }
+
+    /// <summary>
+    /// 根据城市等级获取各建筑的门槛值
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    public static float[] GetFeatureThresholds(int level)
+    {
+        return featureThresholds[level];
     }
 }

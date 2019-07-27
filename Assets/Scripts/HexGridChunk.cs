@@ -17,7 +17,9 @@ public class HexGridChunk : MonoBehaviour
     public HexMesh water;               // 开阔水面
     public HexMesh waterShore;          // 沿岸水面
     public HexMesh estuaries;           // 河口（瀑布下方，河海交接处）
-    
+
+    public HexFeatureManager features;  // 地貌特征管理器，用于给六边形增加特征
+
     HexMesh hexMesh;
     Canvas gridCanvas;
 
@@ -44,7 +46,7 @@ public class HexGridChunk : MonoBehaviour
     void LateUpdate()
     {
         // 刷新三角面
-        Triangulate(cells);
+        Triangulate();
         enabled = false;
     }
 
@@ -53,7 +55,7 @@ public class HexGridChunk : MonoBehaviour
     /// 三角化网格
     /// </summary>
     /// <param name="cells"></param>
-    public void Triangulate(HexCell[] cells)
+    public void Triangulate()
     {
         terrain.Clear();
         rivers.Clear();
@@ -61,6 +63,7 @@ public class HexGridChunk : MonoBehaviour
         water.Clear();
         waterShore.Clear();
         estuaries.Clear();
+        features.Clear();
         for (int i = 0; i < cells.Length; i++)
         {
             Triangulate(cells[i]);
@@ -71,6 +74,7 @@ public class HexGridChunk : MonoBehaviour
         water.Apply();
         waterShore.Apply();
         estuaries.Apply();
+        features.Apply();
     }
 
     void Triangulate(HexCell cell)
@@ -79,6 +83,11 @@ public class HexGridChunk : MonoBehaviour
         for (HexDirection d = HexDirection.NE; d <= HexDirection.NW; d++)
         {
             Triangulate(d, cell);
+        }
+
+        if (!cell.IsUnderwater && !cell.HasRiver && !cell.HasRoads)
+        {
+            features.AddFeature(cell, cell.Position);
         }
     }
 
@@ -115,12 +124,23 @@ public class HexGridChunk : MonoBehaviour
             {
                 // 三角化有河流的六边形内的非河流扇形以及道路
                 TriangulateAdjacentToRiver(direction, cell, center, e);
+
+                if (!cell.IsUnderwater && !cell.HasRoadThroughEdge(direction))
+                {
+                    features.AddFeature(cell, (center + e.v1 + e.v5) * (1f / 3f));
+                }
             }
         }
         // 如果六边形内没有河流则进行普通的扇形三角化，以及三角化道路
         else
         {
             TriangulateWithoutRiver(direction, cell, center, e);
+
+            if (!cell.IsUnderwater && !cell.HasRoadThroughEdge(direction))
+            {
+                //放置一个特征物体
+                features.AddFeature(cell, (center + e.v1 + e.v5) * (1f / 3f));
+            }
         }
 
         // 每两个六边形共享一个桥，所以每个六边形只需要生成三个桥（东北桥、东桥、东南桥）

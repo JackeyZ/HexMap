@@ -51,3 +51,4 @@ MonoBehaviour:
   noiseSource: {fileID: 2800000, guid: 38701cdeb1fb9427cbb585f917aa59cb, type: 3}
   chunkCountX: 4
   chunkCountZ: 3
+  seed: 1234

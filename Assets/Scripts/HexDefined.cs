@@ -174,3 +174,33 @@ enum OptionalToggle
     /// </summary>
     No
 }
+
+/// <summary>
+/// 散列随机网格元素（随机数）
+/// </summary>
+public struct HexHash
+{
+    public float a, b, c, d, e;
+
+    public static HexHash Create()
+    {
+        HexHash hash;
+        hash.a = Random.value * 0.999f;
+        hash.b = Random.value * 0.999f;
+        hash.c = Random.value * 0.999f;
+        hash.d = Random.value * 0.999f;
+        hash.e = Random.value * 0.999f;
+        return hash;
+    }
+}
+
+[System.Serializable]
+public struct HexFeatureCollection
+{
+    public Transform[] Prefabs;             //同等级下不同的建筑
+
+    public Transform Pick(float choice)
+    {
+        return Prefabs[(int)(choice * Prefabs.Length)];
+    }
+}

@@ -18,6 +18,12 @@ public class HexCell : MonoBehaviour
 
     int waterLevel;                 // 水平线
 
+    int urbanLevel;                 // 城市等级
+
+    int farmLevel;                  // 农场等级
+
+    int plantLevel;                 // 植物等级
+
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
@@ -322,6 +328,64 @@ public class HexCell : MonoBehaviour
         }
     }
     #endregion
+
+    /// <summary>
+    /// 城市等级
+    /// </summary>
+    public int UrbanLevel
+    {
+        get
+        {
+            return urbanLevel;
+        }
+        set
+        {
+            if (urbanLevel != value)
+            {
+                urbanLevel = value;
+                RefreshSelfOnly();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 农场等级
+    /// </summary>
+    public int FarmLevel
+    {
+        get
+        {
+            return farmLevel;
+        }
+        set
+        {
+            if (farmLevel != value)
+            {
+                farmLevel = value;
+                RefreshSelfOnly();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 植物等级
+    /// </summary>
+    public int PlantLevel
+    {
+        get
+        {
+            return plantLevel;
+        }
+        set
+        {
+            if (plantLevel != value)
+            {
+                plantLevel = value;
+                RefreshSelfOnly();
+            }
+        }
+    }
+
 
     public void UpdateText()
     {
