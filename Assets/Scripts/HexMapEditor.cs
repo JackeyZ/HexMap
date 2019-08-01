@@ -7,41 +7,43 @@ public class HexMapEditor : MonoBehaviour
 
     public HexGrid hexGrid;
 
-    private Color activeColor;  // 当前选中的颜色
+    private Color activeColor;      // 当前选中的颜色
 
-    int activeElevation;        // 高度
+    int activeElevation;            // 高度
 
-    int activeWaterLevel;       // 水平面高度
+    int activeWaterLevel;           // 水平面高度
 
-    int activeUrbanLevel = 0;   // 城市等级
+    int activeUrbanLevel = 0;       // 城市等级
 
-    int activeFarmLevel = 0;    // 农场等级
+    int activeFarmLevel = 0;        // 农场等级
 
-    int activePlantLevel = 0;   // 植物等级
+    int activePlantLevel = 0;       // 植物等级
 
-    bool applyColor = false;
+    bool applyColor = false;        // 是否开启颜色编辑
 
-    bool applyElevation = true;
+    bool applyElevation = true;     // 是否开启高度编辑
 
-    bool applyWaterLevel = false;
+    bool applyWaterLevel = false;   // 是否开启水平面高度编辑
 
-    bool applyUrbanLevel = false;
+    bool applyUrbanLevel = false;   // 是否开启城市等级编辑
 
-    bool applyFarmLevel = false;
+    bool applyFarmLevel = false;    // 是否开启农场等级编辑
 
-    bool applyPlantLevel = false;
+    bool applyPlantLevel = false;   // 是否开启植物等级编辑
 
-    int brushSize = 0;          // 画刷大小
+    int brushSize = 0;              // 画刷大小
 
-    OptionalToggle riverMode;   // 河流添加模式
+    OptionalToggle riverMode;       // 河流添加模式
 
-    OptionalToggle roadMode;    // 河流添加模式
-    
-    bool isDrag;                // 鼠标是否在拖拽
+    OptionalToggle roadMode;        // 道路添加模式
 
-    HexDirection dragDirection; // 拖拽方向
+    OptionalToggle walledMode;      // 围墙添加模式
 
-    HexCell previousCell;       // 用于在拖拽中记录上一个的六边形
+    bool isDrag;                    // 鼠标是否在拖拽
+
+    HexDirection dragDirection;     // 拖拽方向
+
+    HexCell previousCell;           // 用于在拖拽中记录上一个的六边形
 
     void Awake()
     {
@@ -269,6 +271,13 @@ public class HexMapEditor : MonoBehaviour
             {
                 cell.RemoveRoads();
             }
+
+            // 添加或移除围墙
+            if (walledMode != OptionalToggle.Ignore)
+            {
+                cell.Walled = walledMode == OptionalToggle.Yes;
+            }
+
             // 添加河流
             else if (isDrag)
             {
@@ -309,5 +318,14 @@ public class HexMapEditor : MonoBehaviour
     public void SetRoadMode(int mode)
     {
         roadMode = (OptionalToggle)mode;
+    }
+
+    /// <summary>
+    /// 设置围墙编辑模式（忽略、添加、移除）
+    /// </summary>
+    /// <param name="mode"></param>
+    public void SetWalledMode(int mode)
+    {
+        walledMode = (OptionalToggle)mode;
     }
 }

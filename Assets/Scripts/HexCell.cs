@@ -24,6 +24,8 @@ public class HexCell : MonoBehaviour
 
     int plantLevel;                 // 植物等级
 
+    bool walled;                    // 是否有围墙
+
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
@@ -386,6 +388,25 @@ public class HexCell : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 是否有围墙
+    /// </summary>
+    public bool Walled
+    {
+        get
+        {
+            return walled;
+        }
+
+        set
+        {
+            if (walled != value)
+            {
+                walled = value;
+                Refresh();
+            }
+        }
+    }
 
     public void UpdateText()
     {

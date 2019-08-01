@@ -64,11 +64,11 @@ public static class HexMetrics
 
     public const int terracesPerSlope = 2;                                      // 每个斜坡的平阶梯数目
     public const int terraceSteps = terracesPerSlope * 2 + 1;                   // 平阶梯和斜阶梯的总数
-    public const float horizontalTerraceStepSize = 1f / terraceSteps;           // 阶梯x、z轴偏移占比
-    public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);   // 阶梯y轴偏移占比
+    public const float horizontalTerraceStepSize = 1f / terraceSteps;           // 阶梯x、z轴单位偏移占比(水平偏移)
+    public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);   // 阶梯y轴单位偏移占比(纵向偏移)
 
     public static Texture2D noiseSource;                                        // 使用柏林噪声生成的纹理
-    public const float cellPerturbStrength = 4f;                                // 扰乱幅度
+    public const float cellPerturbStrength = 4f;                                // 扰乱幅度 默认4f
     public const float elevationPerturbStrength = 0.2f;                         // 高度(y)微扰
     public const float noiseScale = 0.003f;                                     // 用于对坐标进行缩放，以适应UV坐标，世界坐标->UV坐标（0~1）
 
@@ -86,6 +86,11 @@ public static class HexMetrics
         new float[] {0.0f, 0.4f, 0.6f},                                         // 表示随机值在0~0.4的时候生成等级2建筑，在.0.4~0.6的时候生成等级1建筑，0.6~1不生成
         new float[] {0.4f, 0.6f, 0.8f}                                          // 表示随机值在0~0.4的时候生成等级3建筑，在.0.4~0.6的时候生成等级2建筑，0.6~0.8生成等级1建筑，0.8~1不生成
     };
+
+    public const float wallHeight = 3f;                                         // 围墙高度
+    public const float wallThickness = 0.75f;                                   // 围墙宽度
+
+    public const float wallElevationOffset = verticalTerraceStepSize;           // 围墙高度单位偏移占比（用于解决斜坡下方围墙高于地表的问题，所以围墙要向下便宜）
 
     /// <summary>
     /// 根据方向获取三角面的第一个顶点
@@ -184,9 +189,9 @@ public static class HexMetrics
     /// <summary>
     /// 斜坡插值计算
     /// </summary>
-    /// <param name="a"></param>
-    /// <param name="b"></param>
-    /// <param name="step"></param>
+    /// <param name="a">斜坡起始点</param>
+    /// <param name="b">斜坡结束点</param>
+    /// <param name="step">第几阶梯</param>
     /// <returns></returns>
     public static Vector3 TerraceLerp(Vector3 a, Vector3 b, int step)
     {
@@ -200,6 +205,13 @@ public static class HexMetrics
         return a;
     }
 
+    /// <summary>
+    /// 斜坡插值计算
+    /// </summary>
+    /// <param name="a">斜坡起始线</param>
+    /// <param name="b">斜坡结束线</param>
+    /// <param name="step">第几阶梯</param>
+    /// <returns></returns>
     public static EdgeVertices TerraceLerp(EdgeVertices a, EdgeVertices b, int step)
     {
         EdgeVertices result;
@@ -311,5 +323,38 @@ public static class HexMetrics
     public static float[] GetFeatureThresholds(int level)
     {
         return featureThresholds[level];
+    }
+
+    /// <summary>
+    /// 墙壁厚度偏移向量，计算墙壁中心到墙壁边缘的偏移向量
+    /// </summary>
+    /// <param name="near"></param>
+    /// <param name="far"></param>
+    /// <returns></returns>
+    public static Vector3 WallThicknessOffset(Vector3 near, Vector3 far)
+    {
+        Vector3 offset;
+        offset.x = far.x - near.x;
+        offset.y = 0f;
+        offset.z = far.z - near.z;
+        return offset.normalized * (wallThickness * 0.5f);
+    }
+
+    /// <summary>
+    /// 根据近侧顶点与远侧顶点计算围墙底部中心线两端其中一端的顶点（水平取中点，纵向取矮一侧的高度）
+    /// </summary>
+    /// <param name="near">近顶点</param>
+    /// <param name="far">远顶点</param>
+    /// <returns></returns>
+    public static Vector3 WallLerp(Vector3 near, Vector3 far)
+    {
+        // 水平取中点
+        near.x += (far.x - near.x) * 0.5f;  
+        near.z += (far.z - near.z) * 0.5f;
+
+        // 判断近侧和远侧的高低，取低一侧的高度
+        float v = near.y < far.y ? wallElevationOffset : (1f - wallElevationOffset); 
+        near.y += (far.y - near.y) * v;
+        return near;
     }
 }

@@ -161,8 +161,7 @@ public class HexGridChunk : MonoBehaviour
     /// </summary>
     /// <param name="direction">生成方向</param>
     /// <param name="cell">自身六边形</param>
-    /// <param name="v1">桥的开始顶点1</param>
-    /// <param name="v2">桥的开始顶点2</param>
+    /// <param name="e1">双色混合区靠近圆心的边</param>
     void TriangulateConnection(HexDirection direction, HexCell cell, EdgeVertices e1)
     {
         // 对应方向上的邻居
@@ -180,8 +179,11 @@ public class HexGridChunk : MonoBehaviour
         e2_v1.y = e2_v5.y = neighbor.Position.y; // 由于对y方向进行了噪声扰乱，所以这里直接取高度，不能在用neighbor.Elevation * HexMetrics.elevationStep计算了
         EdgeVertices e2 = new EdgeVertices(e2_v1, e2_v5);
 
+        bool hasRiver = cell.HasRiverThroughEdge(direction);    // 对应方向是否有河流
+        bool hasRoad = cell.HasRoadThroughEdge(direction);      // 对应方向是否有路
+
         // 如果六边形对应方向有河流，则调整桥邻居一侧的中心顶点的高度（自身在三角化六边形三角面的时候已经调整过了（Triangulate方法里调整的））
-        if (cell.HasRiverThroughEdge(direction))
+        if (hasRiver)
         {
             e2.v3.y = neighbor.StreamBedY;
         }
@@ -190,15 +192,17 @@ public class HexGridChunk : MonoBehaviour
         if (cell.GetEdgeType(direction) == HexEdgeType.Slope)
         {
             // 生成阶梯
-            TriangulateEdgeTerraces(e1, cell, e2, neighbor, cell.HasRoadThroughEdge(direction));
+            TriangulateEdgeTerraces(e1, cell, e2, neighbor, hasRoad);
         }
         else
         {
             // 生成斜面
-            TriangulateEdgeStrip(e1, cell.Color, e2, neighbor.Color, cell.HasRoadThroughEdge(direction));
+            TriangulateEdgeStrip(e1, cell.Color, e2, neighbor.Color, hasRoad);
         }
         ///// 桥混合区end
 
+        // 围墙
+        features.AddWall(e1, cell, e2, neighbor, hasRiver, hasRoad);
 
         //// 三角混合区（角落）
         HexCell nextNeighbor = cell.GetNeighbor(direction.Next());
@@ -353,6 +357,9 @@ public class HexGridChunk : MonoBehaviour
             terrain.AddTriangle(bottom, left, right);
             terrain.AddTriangleColor(bottomCell.Color, leftCell.Color, rightCell.Color);
         }
+
+        // 给三色混合区添加围墙
+        features.AddWall(bottom, bottomCell, left, leftCell, right, rightCell);
     }
 
     /// <summary>
