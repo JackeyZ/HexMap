@@ -12,7 +12,13 @@ public class HexFeatureManager : MonoBehaviour
     public HexFeatureCollection[] farmCollections;                  // 农场预制体（等级从高到低排列）
     public HexFeatureCollection[] plantCollections;                 // 植物预制体（等级从高到低排列）
 
-    public HexMesh walls;
+    public HexMesh walls;                                           // 围墙Mesh
+
+    public Transform wallTower;                                     // 围墙塔楼的预制体
+
+    public Transform bridge;                                        // 桥梁的预制体
+
+    public Transform[] special;                                     // 特殊特征物体预制体
 
     private Transform container;                                    // 特征物体父物体
 
@@ -35,6 +41,11 @@ public class HexFeatureManager : MonoBehaviour
     /// <param name="position">所需添加的坐标（未被微扰的坐标）</param>
     public void AddFeature(HexCell hexCell ,Vector3 position)
     {
+        // 如果有特殊特征物体，则不生成普通特征物体
+        if (hexCell.IsSpecial)
+        {
+            return;
+        }
         HexHash hash = HexMetrics.SampleHashGrid(position);
         Transform prefab = PickPrefab(urbanCollections, hexCell.UrbanLevel, hash.a, hash.d);
         Transform otherPrefab = PickPrefab(farmCollections, hexCell.FarmLevel, hash.b, hash.d);
@@ -180,7 +191,8 @@ public class HexFeatureManager : MonoBehaviour
     /// <param name="farLeft">外侧边左顶点</param>
     /// <param name="nearRight">内侧点的右顶点</param>
     /// <param name="farRight">外侧边右顶点</param>
-    void AddWallSegment(Vector3 nearLeft, Vector3 farLeft, Vector3 nearRight, Vector3 farRight)
+    /// <param name="addTower">是否在本段围墙添加塔楼</param>
+    void AddWallSegment(Vector3 nearLeft, Vector3 farLeft, Vector3 nearRight, Vector3 farRight, bool addTower = false)
     {
         // 先对六边形的顶点进行微扰再计算围墙，以免用算出围墙之后再被微扰导致围墙厚薄不一
         nearLeft = HexMetrics.Perturb(nearLeft);
@@ -215,6 +227,17 @@ public class HexFeatureManager : MonoBehaviour
         walls.AddQuadUnperturbed(v2, v1, v4, v3);           // 生成围墙外侧四边形
 
         walls.AddQuadUnperturbed(t1, t2, v3, v4);           // 生成围墙顶部四边形
+
+        // 实例化塔楼
+        if (addTower)
+        {
+            Transform towerInstance = Instantiate(wallTower);
+            towerInstance.transform.localPosition = (left + right) * 0.5f;  // 坐标设为围墙中心线的中点
+            Vector3 rightDirection = right - left;
+            rightDirection.y = 0f;
+            towerInstance.transform.right = rightDirection;                 // 设置旋转
+            towerInstance.SetParent(container, false);
+        }
     }
 
     /// <summary>
@@ -245,7 +268,14 @@ public class HexFeatureManager : MonoBehaviour
         {
             if (hasRighWall)
             {
-                AddWallSegment(pivot, left, pivot, right);
+                bool hasTower = false;
+                // 判断两边高度， 斜坡不生成塔楼
+                if (leftCell.Elevation == rightCell.Elevation)
+                {
+                    HexHash hash = HexMetrics.SampleHashGrid((pivot + left + right) * (1f / 3f)); // 用角落中点对散列网络进行取样，得到坐标对应的随机值
+                    hasTower = hash.e < HexMetrics.wallTowerThreshold;
+                }
+                AddWallSegment(pivot, left, pivot, right, hasTower);
             }
             // 右边没有墙壁且右侧六边形比左侧高，则表明右侧一个陡坡
             else if (leftCell.Elevation < rightCell.Elevation)  
@@ -316,6 +346,41 @@ public class HexFeatureManager : MonoBehaviour
         walls.AddQuadUnperturbed(v1, point, v3, pointTop);
         walls.AddQuadUnperturbed(point, v2, pointTop, v4);
         walls.AddTriangleUnperturbed(pointTop, v3, v4);
+    }
+    #endregion
+
+    #region 河流上的桥梁
+    /// <summary>
+    /// 添加桥梁
+    /// </summary>
+    /// <param name="roadCenter1">桥一端道路的中心点</param>
+    /// <param name="roadCenter2">桥另一端道路的中心点</param>
+    public void AddBridge(Vector3 roadCenter1, Vector3 roadCenter2)
+    {
+        // 微扰之后再计算桥梁位置
+        roadCenter1 = HexMetrics.Perturb(roadCenter1);
+        roadCenter2 = HexMetrics.Perturb(roadCenter2);
+
+        Transform instance = Instantiate(bridge);
+        instance.localPosition = (roadCenter1 + roadCenter2) * 0.5f;            // 取中点
+        instance.forward = roadCenter2 - roadCenter1;                           // 设置桥梁旋转方向
+
+        // 设置桥梁长度
+        float lenght = Vector3.Distance(roadCenter1, roadCenter2);
+        instance.localScale = new Vector3(1f, 1f, lenght * (1 / HexMetrics.bridgeDesignLength)); // bridgeDesignLength是桥梁默认长度
+
+        instance.SetParent(container, false);
+    }
+    #endregion
+
+    #region 特殊特征物体
+    public void AddSpecialFeature(HexCell cell, Vector3 position)
+    {
+        Transform instance = Instantiate(special[cell.SpecialIndex - 1]);   // 因为0表明没有特殊特征物体, 但是数组从0开始，所以这里-1
+        instance.localPosition = HexMetrics.Perturb(position);
+        HexHash hash = HexMetrics.SampleHashGrid(position);
+        instance.localRotation = Quaternion.Euler(0f, 360f * hash.e, 0f);
+        instance.SetParent(container, false);
     }
     #endregion
 }

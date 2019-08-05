@@ -19,6 +19,8 @@ public class HexMapEditor : MonoBehaviour
 
     int activePlantLevel = 0;       // 植物等级
 
+    int activeSpecialIndex = 0;     // 特殊特征物体下标，0表示没有
+
     bool applyColor = false;        // 是否开启颜色编辑
 
     bool applyElevation = true;     // 是否开启高度编辑
@@ -30,6 +32,8 @@ public class HexMapEditor : MonoBehaviour
     bool applyFarmLevel = false;    // 是否开启农场等级编辑
 
     bool applyPlantLevel = false;   // 是否开启植物等级编辑
+
+    bool applySpecialIndex = false; // 是否开启特殊特征物体下标编辑
 
     int brushSize = 0;              // 画刷大小
 
@@ -162,6 +166,24 @@ public class HexMapEditor : MonoBehaviour
         activePlantLevel = (int)urbanLevel;
     }
 
+    /// <summary>
+    /// 是否更改特殊特征物体下标
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void SetApplySpecialIndex(bool toggle)
+    {
+        applySpecialIndex = toggle;
+    }
+
+    /// <summary>
+    /// 更改特殊特征物体下标
+    /// </summary>
+    /// <param name="index"></param>
+    public void SetSpecialIndex(float index)
+    {
+        activeSpecialIndex = (int)index;
+    }
+
     void HandleInput()
     {
         Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -241,6 +263,12 @@ public class HexMapEditor : MonoBehaviour
             if (applyWaterLevel)
             {
                 cell.WaterLevel = activeWaterLevel;
+            }
+
+            // 特殊特征物体下标
+            if (applySpecialIndex)
+            {
+                cell.SpecialIndex = activeSpecialIndex;
             }
 
             // 单元城市密度

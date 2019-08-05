@@ -68,7 +68,7 @@ public static class HexMetrics
     public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);   // 阶梯y轴单位偏移占比(纵向偏移)
 
     public static Texture2D noiseSource;                                        // 使用柏林噪声生成的纹理
-    public const float cellPerturbStrength = 4f;                                // 扰乱幅度 默认4f
+    public const float cellPerturbStrength = 0f;                                // 扰乱幅度 默认4f
     public const float elevationPerturbStrength = 0.2f;                         // 高度(y)微扰
     public const float noiseScale = 0.003f;                                     // 用于对坐标进行缩放，以适应UV坐标，世界坐标->UV坐标（0~1）
 
@@ -87,10 +87,15 @@ public static class HexMetrics
         new float[] {0.4f, 0.6f, 0.8f}                                          // 表示随机值在0~0.4的时候生成等级3建筑，在.0.4~0.6的时候生成等级2建筑，0.6~0.8生成等级1建筑，0.8~1不生成
     };
 
-    public const float wallHeight = 3f;                                         // 围墙高度
+    public const float wallHeight = 4f;                                         // 围墙高度
     public const float wallThickness = 0.75f;                                   // 围墙宽度
+    public const float wallYOffset = -1f;                                       // 围墙高度偏移
 
     public const float wallElevationOffset = verticalTerraceStepSize;           // 围墙高度单位偏移占比（用于解决斜坡下方围墙高于地表的问题，所以围墙要向下便宜）
+
+    public const float wallTowerThreshold = 0.5f;                               // 塔楼在围墙角落生成的几率
+
+    public const float bridgeDesignLength = 7f;                                 // 桥梁预制体默认长度（scale.z）
 
     /// <summary>
     /// 根据方向获取三角面的第一个顶点
@@ -354,7 +359,7 @@ public static class HexMetrics
 
         // 判断近侧和远侧的高低，取低一侧的高度
         float v = near.y < far.y ? wallElevationOffset : (1f - wallElevationOffset); 
-        near.y += (far.y - near.y) * v;
+        near.y += (far.y - near.y) * v + wallYOffset;
         return near;
     }
 }

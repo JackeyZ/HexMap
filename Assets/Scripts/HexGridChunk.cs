@@ -85,14 +85,22 @@ public class HexGridChunk : MonoBehaviour
             Triangulate(d, cell);
         }
 
-        if (!cell.IsUnderwater && !cell.HasRiver && !cell.HasRoads)
+        if (!cell.IsUnderwater)
         {
-            features.AddFeature(cell, cell.Position);
+            if (!cell.HasRiver && !cell.HasRoads)
+            {
+                features.AddFeature(cell, cell.Position);
+            }
+
+            if (cell.IsSpecial)
+            {
+                features.AddSpecialFeature(cell, cell.Position);
+            }
         }
     }
 
     /// <summary>
-    /// 三角面化对应方向的三角面（一个六边形有六个方向的三角面）
+    /// 三角面化对应方向的扇形（一个六边形有六个方向的扇形）
     /// </summary>
     /// <param name="direction">方向</param>
     /// <param name="cell">六边形</param>
@@ -739,7 +747,7 @@ public class HexGridChunk : MonoBehaviour
     /// </summary>
     /// <param name="direction"></param>
     /// <param name="cell"></param>
-    /// <param name="center"></param>
+    /// <param name="center">六边形的中心</param>
     /// <param name="e"></param>
     void TriangulateRoadAdjacentToRiver(HexDirection direction, HexCell cell, Vector3 center, EdgeVertices e)
     {
@@ -748,7 +756,7 @@ public class HexGridChunk : MonoBehaviour
         bool nextHasRiver = cell.HasRiverThroughEdge(direction.Next());         // 下一个方向是否有河流
 
         Vector2 interpolators = GetRoadInterpolators(direction, cell);
-        Vector3 roadCenter = center;
+        Vector3 roadCenter = center;                                            // 把道路中心初始化成六边形中心
 
         // 如果六边形是河流的源头或者尽头
         if (cell.HasRiverBeginOrEnd)
@@ -780,6 +788,15 @@ public class HexGridChunk : MonoBehaviour
             }
             // 需要把道路中心两个点沿着河流的垂线往外推
             roadCenter += corner * 0.5f;
+
+            // 添加桥梁
+            if ( cell.IncomingRiver == direction.Next() &&               // 由于有多个没有河流经过的扇形，所以只选取一个方向的扇形添加桥梁，保证只实例化一次桥梁
+               ( cell.HasRoadThroughEdge(direction.Next2()) || cell.HasRoadThroughEdge(direction.Opposite()) ) ) // 河流对面的扇形也有道路才添加桥梁
+            {
+                features.AddBridge(roadCenter, center - corner * 0.5f); // 沿着河流垂线找到桥的第二个端点
+            }
+
+            // 六边形中心也往外推
             center += corner * 0.25f;
         }
         // 如果流入河流与流出河流相邻
@@ -829,7 +846,15 @@ public class HexGridChunk : MonoBehaviour
             {
                 return;
             }
-            roadCenter += HexMetrics.GetSolidEdgeMiddle(middle) * 0.25f;
+            Vector3 offset = HexMetrics.GetSolidEdgeMiddle(middle);
+            roadCenter += offset * 0.25f;
+
+            
+            if (direction == middle &&                              // 避免重复生成桥梁，只在创建河流弧度外侧的中间扇形道路的时候添加桥梁
+                cell.HasRoadThroughEdge(direction.Opposite()))      // 河对岸也要有道路
+            {
+                features.AddBridge(roadCenter, center - offset * (HexMetrics.innerToOuter * 0.7f));     // 这里的第二个参数为道路在河流弧度内侧时的道路中心
+            }
         }
 
 
@@ -838,12 +863,12 @@ public class HexGridChunk : MonoBehaviour
         Vector3 mR = Vector3.Lerp(roadCenter, e.v5, interpolators.y);
         TriangulateRoad(roadCenter, mL, mR, e, hasRoadThroughEdge);
 
-        // 如果上一个方向有河流，则三角化道路边缘
+        // 如果上一个方向有河流，则三角化一个道路边缘填补空隙
         if (previousHasRiver)
         {
             TriangulateRoadEdge(roadCenter, center, mL);
         }
-        // 如果下一个方向有河流，则三角化道路边缘
+        // 如果下一个方向有河流，则三角化一个道路边缘填补空隙
         if (nextHasRiver)
         {
             TriangulateRoadEdge(roadCenter, mR, center);

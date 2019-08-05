@@ -26,6 +26,8 @@ public class HexCell : MonoBehaviour
 
     bool walled;                    // 是否有围墙
 
+    int specialIndex = 0;           // 特殊特征物体下标，对应HexFeatureManager里的special， 0表示没有特殊特征物体
+
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
@@ -408,6 +410,39 @@ public class HexCell : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 特殊特征物体下标，对应HexFeatureManager里的special
+    /// </summary>
+    public int SpecialIndex
+    {
+        get
+        {
+            return specialIndex;
+        }
+
+        set
+        {
+            if (specialIndex != value && !HasRiver)     // 没有河流才允许设置特殊特征物体
+            {
+                specialIndex = value;
+                RemoveRoads();                          // 有特殊特征物体的时候去除道路
+                RefreshSelfOnly();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 是否有特殊特征物体
+    /// </summary>
+    public bool IsSpecial
+    {
+        get
+        {
+            return specialIndex > 0;
+        }
+    }
+
+
     public void UpdateText()
     {
         //label.text = Coordinates.ToString(); // 坐标文字
@@ -536,7 +571,9 @@ public class HexCell : MonoBehaviour
         // 重新设置流出河流
         hasOutgoingRiver = true;
         outgoingRiver = direction;
-        //RefreshSelfOnly();      
+
+        // 清除特殊特征物体, 有河流不允许有特殊特征物体
+        specialIndex = 0;
 
         // 移除邻居的流入河流
         neighbor.RemoveIncomingRiver();
@@ -571,8 +608,9 @@ public class HexCell : MonoBehaviour
     /// </summary>
     public void AddRoad(HexDirection direction)
     {
-        // 判断对应方向是否已经有道路或者是否有河流，最后判断自身与邻居的高度差
-        if (!roads[(int)direction] && !HasRiverThroughEdge(direction) && GetElevationDifference(direction) <= 1)
+        if (!roads[(int)direction] && !HasRiverThroughEdge(direction) &&        // 判断对应方向是否已经有道路或者是否有河流
+            !IsSpecial && !GetNeighbor(direction).IsSpecial &&                  // 没有特殊特征物体
+            GetElevationDifference(direction) <= 1)                             // 自身与邻居的高度差
         {
             SetRoad((int)direction, true);
         }
