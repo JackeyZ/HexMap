@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 六边形格子邻居方向
+/// 六边形格子六个扇形方向
 /// </summary>
 public enum HexDirection
 {

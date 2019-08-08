@@ -68,7 +68,7 @@ public static class HexMetrics
     public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);   // 阶梯y轴单位偏移占比(纵向偏移)
 
     public static Texture2D noiseSource;                                        // 使用柏林噪声生成的纹理
-    public const float cellPerturbStrength = 0f;                                // 扰乱幅度 默认4f
+    public const float cellPerturbStrength = 4f;                                // 扰乱幅度 默认4f
     public const float elevationPerturbStrength = 0.2f;                         // 高度(y)微扰
     public const float noiseScale = 0.003f;                                     // 用于对坐标进行缩放，以适应UV坐标，世界坐标->UV坐标（0~1）
 
@@ -96,6 +96,8 @@ public static class HexMetrics
     public const float wallTowerThreshold = 0.5f;                               // 塔楼在围墙角落生成的几率
 
     public const float bridgeDesignLength = 7f;                                 // 桥梁预制体默认长度（scale.z）
+
+    public static Color[] colors;                                               // 不同地形的颜色（在HexGrid里初始化）
 
     /// <summary>
     /// 根据方向获取三角面的第一个顶点

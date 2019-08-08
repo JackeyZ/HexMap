@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class HexMapCamera : MonoBehaviour
 {
+    static HexMapCamera instance;
+
     Transform swivel, stick;
     float zoom = 1f;                                // 变焦程度，0表示最远，1表示最近
     public float stickMinZoom, stickMaxZoom;        // 最小、最大焦距
@@ -17,8 +19,17 @@ public class HexMapCamera : MonoBehaviour
     float rotationAngle;                            // 用于记录旋转角度
     public HexGrid grid;
 
+    public static bool Locked
+    {
+        set
+        {
+            instance.enabled = !value;
+        }
+    }
+
     void Awake()
     {
+        instance = this;
         swivel = transform.GetChild(0);
         stick = swivel.GetChild(0);
     }
@@ -71,10 +82,10 @@ public class HexMapCamera : MonoBehaviour
 
     Vector3 ClampPosition(Vector3 position)
     {
-        float xMax = (grid.chunkCountX * HexMetrics.chunkSizeX - 0.5f) * (2f * HexMetrics.innerRadius);
+        float xMax = (grid.cellCountX - 0.5f) * (2f * HexMetrics.innerRadius);
         position.x = Mathf.Clamp(position.x, 0f, xMax);
 
-        float zMax = (grid.chunkCountZ * HexMetrics.chunkSizeZ - 1) * (1.5f * HexMetrics.outerRadius);
+        float zMax = (grid.cellCountZ - 1) * (1.5f * HexMetrics.outerRadius);
         position.z = Mathf.Clamp(position.z, 0f, zMax);
 
         return position;
@@ -92,5 +103,13 @@ public class HexMapCamera : MonoBehaviour
             rotationAngle -= 360f;
         }
         transform.localRotation = Quaternion.Euler(0f, rotationAngle, 0f);
+    }
+
+    /// <summary>
+    /// 验证地图边界
+    /// </summary>
+    public static void ValidatePosition()
+    {
+        instance.AdjustPosition(0f, 0f);
     }
 }

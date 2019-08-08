@@ -1,13 +1,12 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
+using System.IO;
 
 public class HexMapEditor : MonoBehaviour
 {
-    public Color[] colors;
-
     public HexGrid hexGrid;
 
-    private Color activeColor;      // 当前选中的颜色
+    int activeTerrainTypeIndex;     // 当前地形类型引索
 
     int activeElevation;            // 高度
 
@@ -20,8 +19,6 @@ public class HexMapEditor : MonoBehaviour
     int activePlantLevel = 0;       // 植物等级
 
     int activeSpecialIndex = 0;     // 特殊特征物体下标，0表示没有
-
-    bool applyColor = false;        // 是否开启颜色编辑
 
     bool applyElevation = true;     // 是否开启高度编辑
 
@@ -51,7 +48,6 @@ public class HexMapEditor : MonoBehaviour
 
     void Awake()
     {
-        SelectColor(-1);
     }
 
     void Update()
@@ -66,16 +62,14 @@ public class HexMapEditor : MonoBehaviour
             previousCell = null;        // 没有拖拽的时候把上一个的六边形置空
         }
     }
-
+    
     /// <summary>
-    /// 选择颜色，UI上的toggle调用
+    ///  设置地形类型引索
     /// </summary>
     /// <param name="index"></param>
-    public void SelectColor(int index)
+    public void SetTerrainTypeIndex(int index)
     {
-        applyColor = index >= 0;
-        if(applyColor)
-            activeColor = colors[index];
+        activeTerrainTypeIndex = index;
     }
 
     /// <summary>
@@ -248,11 +242,12 @@ public class HexMapEditor : MonoBehaviour
     {
         if (cell)
         {
-            // 单元那颜色
-            if (applyColor)
+            // 设置地形类型引索
+            if (activeTerrainTypeIndex >= 0)
             {
-                cell.Color = activeColor;
+                cell.TerrainTypeIndex = activeTerrainTypeIndex;
             }
+
             // 单元高度
             if (applyElevation)
             {

@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using System.IO;
 
 /// <summary>
 /// 单个六边形的脚本
@@ -7,8 +8,8 @@ using UnityEngine.UI;
 public class HexCell : MonoBehaviour
 {
     public Text label;              // 坐标Text
-
-    private Color color;            // 颜色
+    
+    private int terrainTypeIndex = 0;   // 地形类型下标
 
     public HexGridChunk chunk;      // 所属网格块的引用
 
@@ -31,6 +32,8 @@ public class HexCell : MonoBehaviour
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
+    private int elevation = 0;         // 高度
+
     /// <summary>
     /// 偏移坐标（X,Y,Z）
     /// </summary>
@@ -42,8 +45,6 @@ public class HexCell : MonoBehaviour
     /// </summary>
     [SerializeField]
     private HexCell[] neighbors = null;
-
-    private int elevation;       // 高度
 
     /// <summary>
     /// 偏移坐标（X,Y,Z）
@@ -77,10 +78,9 @@ public class HexCell : MonoBehaviour
             if (elevation != value)
             {
                 elevation = value;
-                Vector3 position = transform.localPosition;
-                position.y = value * HexMetrics.elevationStep;
-                position.y += (HexMetrics.SampleNoise(position).y * 2f - 1f) * HexMetrics.elevationPerturbStrength; // 高度噪声偏移
-                transform.localPosition = position;
+
+                // 刷新六边形GameObject的高度
+                RefreshPosition();      
 
                 // 检查河流有效性
                 ValidateRivers();
@@ -97,6 +97,17 @@ public class HexCell : MonoBehaviour
                 Refresh();
             }
         }
+    }
+
+    /// <summary>
+    /// 根据高度，刷新六边形GameObject的高度
+    /// </summary>
+    void RefreshPosition()
+    {
+        Vector3 position = transform.localPosition;
+        position.y = elevation * HexMetrics.elevationStep;
+        position.y += (HexMetrics.SampleNoise(position).y * 2f - 1f) * HexMetrics.elevationPerturbStrength; // 高度噪声偏移
+        transform.localPosition = position;
     }
 
     /// <summary>
@@ -117,18 +128,29 @@ public class HexCell : MonoBehaviour
     {
         get
         {
-            return color;
+            return HexMetrics.colors[terrainTypeIndex];
         }
+    }
 
+    /// <summary>
+    /// 地形类型下标
+    /// </summary>
+    public int TerrainTypeIndex
+    {
+        get
+        {
+            return terrainTypeIndex;
+        }
         set
         {
-            if(color != value)
+            if (terrainTypeIndex != value)
             {
-                color = value;
+                terrainTypeIndex = value;
                 Refresh();
             }
         }
     }
+
 
     #region 河流属性
     /// <summary>
@@ -671,4 +693,97 @@ public class HexCell : MonoBehaviour
             chunk.Refresh();
         }
     }
+
+    #region 地图储存和加载相关
+    public void Save(BinaryWriter writer)
+    {
+        // 整形数据（把0~255的整形转换成byte以节省空间）
+        writer.Write((byte)terrainTypeIndex);                   // 地形类型
+        writer.Write((byte)(elevation + 100));                  // 高度 +100是为了把负数高度偏移成整数，转换成byte才不会出错
+        writer.Write((byte)waterLevel);                         // 水平面高度
+        writer.Write((byte)urbanLevel);                         // 城市等级
+        writer.Write((byte)farmLevel);                          // 农场等级
+        writer.Write((byte)plantLevel);                         // 植物等级
+        writer.Write((byte)specialIndex);                       // 特殊特征物体引索
+
+        writer.Write(walled);                                   // 是否被围墙围起
+
+        // 储存河流信息
+        // 一个byte（字节）八位， 把河流流入方向有六个方向，储存在低位的三个位里0000 0000~0000 0101
+        //                        把是否有河流储存在高位的第一个位 0000 0000表示没有河流，1000 0000表示有河流
+        if (hasIncomingRiver)
+        {
+            writer.Write((byte)(incomingRiver + 128)); // +128表示在最高位加1
+        }                                   
+        else
+        {
+            writer.Write((byte)0);
+        }
+
+        if (hasOutgoingRiver)
+        {
+            writer.Write((byte)(outgoingRiver + 128));
+        }
+        else {
+            writer.Write((byte)0);
+        }
+
+        // 储存道路数据
+        // 六个道路方向放在一个字节内，六个方向分别对应低六位， 0000 0000 ~ 0011 1111
+        int roadFlags = 0;
+        for (int i = 0; i < roads.Length; i++)
+        {
+            if (roads[i])
+            {
+                roadFlags |= 1 << i;        // 左移之后按位或， 例如：010 | 001 = 011
+            }
+        }
+        writer.Write((byte)roadFlags);
+    }
+
+    public void Load(BinaryReader reader)
+    {
+        // 按照保存顺序读取整形数据
+        terrainTypeIndex = reader.ReadByte();
+        elevation = reader.ReadByte() - 100;
+        waterLevel = reader.ReadByte();
+        urbanLevel = reader.ReadByte();
+        farmLevel = reader.ReadByte();
+        plantLevel = reader.ReadByte();
+        specialIndex = reader.ReadByte();
+        RefreshPosition();                                      // 刷新六边形gameobject高度
+        
+        walled = reader.ReadBoolean();
+
+        // 读取流入河流数据
+        byte incomingRiverData = reader.ReadByte();
+        if (incomingRiverData >= 128)
+        {
+            hasIncomingRiver = true;
+            incomingRiver = (HexDirection)(incomingRiverData - 128);
+        }
+        else
+        {
+            hasIncomingRiver = false;
+        }
+        // 读取流出河流数据
+        byte ougoingRiverData = reader.ReadByte();
+        if (ougoingRiverData >= 128)
+        {
+            hasOutgoingRiver = true;
+            outgoingRiver = (HexDirection)(ougoingRiverData - 128);
+        }
+        else
+        {
+            hasOutgoingRiver = false;
+        }
+
+        // 道路数据
+        byte roadFlags = reader.ReadByte();
+        for (int i = 0; i < roads.Length; i++)
+        {
+            roads[i] = (roadFlags & (1 << i)) != 0;         // 1左移i位，然后按位与，提取roadFlags对应位的数据。按位与： 0010 0110 & 0000 0010 = 0000 0010
+        }                                                                                                              //0010 0110 & 0000 1000 = 0000 0000
+    }
+    #endregion
 }

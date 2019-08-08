@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-
+using System.IO;
 
 /// <summary>
 /// 管理整个六边形网格地图
@@ -10,18 +10,17 @@ public class HexGrid : MonoBehaviour
 
     public HexCell cellPrefab;                              // 六边形预制体
 
-    public Color defaultColor = Color.white;
-
     public Texture2D noiseSource;
 
-    public int chunkCountX = 4, chunkCountZ = 3;            // 网格块数目
+    int chunkCountX, chunkCountZ;                           // 网格块数目（把所有六边形分成多少块）
 
     public int seed;                                        // 随机数种子
 
-    int cellCountX, cellCountZ;                             // 六边形数目
+    public int cellCountX = 20, cellCountZ = 15;                             // 六边形总数目
 
+    public Color[] colors;                                  // 不同地形的颜色
 
-    HexGridChunk[] chunks;
+    HexGridChunk[] chunks;                                  // 网格块数组
 
     HexCell[] cells;
     void OnEnable()
@@ -30,6 +29,7 @@ public class HexGrid : MonoBehaviour
         {
             HexMetrics.noiseSource = noiseSource;
             HexMetrics.InitializeHashGrid(seed);
+            HexMetrics.colors = colors;
         }
     }
 
@@ -37,14 +37,39 @@ public class HexGrid : MonoBehaviour
     {
         HexMetrics.noiseSource = noiseSource;
         HexMetrics.InitializeHashGrid(seed);
+        HexMetrics.colors = colors;
+        CreateMap(cellCountX, cellCountZ);
+    }
+    public bool CreateMap(int x, int z)
+    {
+        if (x <= 0 || x % HexMetrics.chunkSizeX != 0 || z <= 0 || z % HexMetrics.chunkSizeZ != 0)
+        {
+            Debug.LogError("不支持的大小！横向必须是" + HexMetrics.chunkSizeX + "的倍数，纵向必须是" + HexMetrics.chunkSizeZ + "的整数。");
+            return false;
+        }
 
-        cellCountX = chunkCountX * HexMetrics.chunkSizeX;
-        cellCountZ = chunkCountZ * HexMetrics.chunkSizeZ;
+        // 如果已经创建了地图，就先把场景上旧的地图销毁掉
+        if (chunks != null)
+        {
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                Destroy(chunks[i].gameObject);
+            }
+            chunks = null;
+        }
 
+        // 生成地图
+        cellCountX = x;
+        cellCountZ = z;
+        chunkCountX = cellCountX / HexMetrics.chunkSizeX;
+        chunkCountZ = cellCountZ / HexMetrics.chunkSizeZ;
         CreateChunks();
         CreateCells();
+        return true;
     }
-
+    /// <summary>
+    /// 创建所有网络快
+    /// </summary>
     void CreateChunks()
     {
         chunks = new HexGridChunk[chunkCountX * chunkCountZ];
@@ -59,6 +84,23 @@ public class HexGrid : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 刷新所有网路块的三角面
+    /// </summary>
+    public void RefreshChunks()
+    {
+        if(chunks != null)
+        {
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                chunks[i].Refresh();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 创建所有六边形
+    /// </summary>
     void CreateCells()
     {
         cells = new HexCell[cellCountZ * cellCountX];
@@ -114,7 +156,6 @@ public class HexGrid : MonoBehaviour
         //cell.transform.SetParent(transform, false);
         cell.transform.localPosition = position;
         cell.Coordinates = HexCoordinates.FromOffsetCoordinates(x, z);
-        cell.Color = defaultColor;
 
         #region 设置邻里关系
         // 第二列开始往西边连接
@@ -168,4 +209,46 @@ public class HexGrid : MonoBehaviour
         int localZ = z - chunkZ * HexMetrics.chunkSizeZ;
         chunk.AddCell(localX + localZ * HexMetrics.chunkSizeX, cell);
     }
+
+    #region 地图储存和加载相关
+    /// <summary>
+    /// 保存所有六边形数据到文件
+    /// </summary>
+    /// <param name="writer"></param>
+    public void Save(BinaryWriter writer)
+    {
+        // 储存地图大小
+        writer.Write(cellCountX);
+        writer.Write(cellCountZ);
+        for (int i = 0; i < cells.Length; i++)
+        {
+            cells[i].Save(writer);
+        }
+    }
+
+    /// <summary>
+    /// 从文件加载所有六边形数据
+    /// </summary>
+    /// <param name="writer"></param>
+    /// <param name="header">地图版本号，可根据不同版本号作对应操作</param>
+    public void Load(BinaryReader reader, int header)
+    {
+        // 读取地图大小并创建对应大小的地图
+        int x = reader.ReadInt32();
+        int z = reader.ReadInt32();
+
+        // 当加载的地图与当前场景的地图大小不一致的时候才重新创建地图
+        if (x != cellCountX || z != cellCountZ)
+        {
+            if (!CreateMap(x, z))
+            {
+                return;
+            }
+        }
+        for (int i = 0; i < cells.Length; i++)
+        {
+            cells[i].Load(reader);
+        }
+    }
+    #endregion
 }

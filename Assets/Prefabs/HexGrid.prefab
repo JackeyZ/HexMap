@@ -47,8 +47,13 @@ MonoBehaviour:
     type: 3}
   cellPrefab: {fileID: 1868649715070570304, guid: 16439e268b959a945804f29380b46767,
     type: 3}
-  defaultColor: {r: 1, g: 1, b: 1, a: 1}
   noiseSource: {fileID: 2800000, guid: 38701cdeb1fb9427cbb585f917aa59cb, type: 3}
-  chunkCountX: 4
-  chunkCountZ: 3
   seed: 1234
+  cellCountX: 20
+  cellCountZ: 15
+  colors:
+  - {r: 1, g: 1, b: 0, a: 1}
+  - {r: 0, g: 0.6666667, b: 0, a: 1}
+  - {r: 0, g: 0, b: 1, a: 1}
+  - {r: 1, g: 0, b: 0, a: 1}
+  - {r: 1, g: 1, b: 1, a: 1}
