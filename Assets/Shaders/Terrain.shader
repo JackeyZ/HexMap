@@ -28,7 +28,7 @@
  
 			void vert (inout appdata_full v, out Input data) {
 				UNITY_INITIALIZE_OUTPUT(Input, data);									// 此宏用于将给定类型的名称变量初始化为零。
-				data.terrain = v.texcoord2.xyz;											// 获取第三个uv数据
+				data.terrain = v.texcoord2.xyz;											// 获取第三个uv数据（x是第一个地形类型，y是第二个地形类型，z是第三个地形类型）
 			}
 
 			float4 GetTerrainColor (Input IN, int index) {
@@ -41,7 +41,6 @@
 			void surf (Input IN, inout SurfaceOutputStandard o) {
                 fixed4 c = GetTerrainColor(IN, 0) + GetTerrainColor(IN, 1) + GetTerrainColor(IN, 2);
                 o.Albedo = c.rgb * _Color;												// 纹理颜色与设置的颜色融合
-				//o.Albedo = float4(IN.terrain[0] / 5, 0,0,1);
                 o.Metallic = _Metallic;													// 金属感
                 o.Smoothness = _Glossiness;												// 平滑
                 o.Alpha = c.a;
