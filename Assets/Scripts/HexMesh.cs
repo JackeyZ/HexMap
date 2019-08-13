@@ -12,11 +12,15 @@ public class HexMesh : MonoBehaviour
     public bool useColors;                                      // 是否需要改变颜色
     public bool useUVCoordinates;                               // 是否需要UV坐标
     public bool useUV2Coordinates;                              // 是否需要第二个UV坐标
+    public bool useTerrainTypes;                                // 是否需要地形类型
 
     Mesh hexMesh;
 
     [NonSerialized]
     List<Vector3> vertices;                                     // 网格顶点
+
+    [NonSerialized]
+    List<Vector3> terrainTypes;                                 // 用于记录每个顶点的地形类型
 
     [NonSerialized]
     List<Color> colors;                                         // 顶点颜色列表，在shader中读取
@@ -29,6 +33,7 @@ public class HexMesh : MonoBehaviour
 
     [NonSerialized]
     List<int> triangles;                                        // 三角面对应顶点引索
+
 
     MeshCollider meshCollider;                                  // mesh碰撞器
 
@@ -58,6 +63,10 @@ public class HexMesh : MonoBehaviour
         {
             uv2s = ListPool<Vector2>.Get();
         }
+        if (useTerrainTypes)
+        {
+            terrainTypes = ListPool<Vector3>.Get();
+        }
         triangles = ListPool<int>.Get();
     }
 
@@ -66,6 +75,10 @@ public class HexMesh : MonoBehaviour
     /// </summary>
     public void Apply()
     {
+        if (terrainTypes != null && terrainTypes.Count != vertices.Count)
+        {
+            Debug.Log(vertices.Count + ":" + terrainTypes.Count);
+        }
         hexMesh.SetVertices(vertices);
         ListPool<Vector3>.Add(vertices);        // 归还给列表池
         
@@ -84,7 +97,11 @@ public class HexMesh : MonoBehaviour
             hexMesh.SetUVs(1, uv2s);
             ListPool<Vector2>.Add(uv2s);        // 归还给列表池
         }
-
+        if (useTerrainTypes)
+        {
+            hexMesh.SetUVs(2, terrainTypes);    // 归还给列表池
+            ListPool<Vector3>.Add(terrainTypes);
+        }
         hexMesh.SetTriangles(triangles, 0);
         ListPool<int>.Add(triangles);           // 归还给列表池
 
@@ -330,6 +347,31 @@ public class HexMesh : MonoBehaviour
         uv2s.Add(new Vector2(uMax, vMin));
         uv2s.Add(new Vector2(uMin, vMax));
         uv2s.Add(new Vector2(uMax, vMax));
+    }
+    #endregion
+
+    #region 增加顶点地形类型
+    /// <summary>
+    /// 给三角形三个顶点添加地形类型
+    /// </summary>
+    /// <param name="types"></param>
+    public void AddTriangleTerrainTypes(Vector3 types)
+    {
+        terrainTypes.Add(types);
+        terrainTypes.Add(types);
+        terrainTypes.Add(types);
+    }
+
+    /// <summary>
+    /// 给四边形四个顶点添加地形类型
+    /// </summary>
+    /// <param name="types"></param>
+    public void AddQuadTerrainTypes(Vector3 types)
+    {
+        terrainTypes.Add(types);
+        terrainTypes.Add(types);
+        terrainTypes.Add(types);
+        terrainTypes.Add(types);
     }
     #endregion
 }

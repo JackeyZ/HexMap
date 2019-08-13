@@ -1073,6 +1073,36 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
       objectReference: {fileID: 995893092183432818}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 649751319792445171, guid: ca8dd57afb1a8444c8cb11990bd7a7a2,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ca8dd57afb1a8444c8cb11990bd7a7a2, type: 3}
 --- !u!1 &630769628
@@ -1458,6 +1488,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: SaveLoadMenu
       objectReference: {fileID: 0}
+    - target: {fileID: 995893092183432818, guid: 8c1d2ca7f6d93734d858e88b0a8c79d9,
+        type: 3}
+      propertyPath: hexGrid
+      value: 
+      objectReference: {fileID: 689367569}
     - target: {fileID: 5603746159802815254, guid: 8c1d2ca7f6d93734d858e88b0a8c79d9,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -1563,10 +1598,5 @@ PrefabInstance:
       propertyPath: m_Pivot.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 995893092183432818, guid: 8c1d2ca7f6d93734d858e88b0a8c79d9,
-        type: 3}
-      propertyPath: hexGrid
-      value: 
-      objectReference: {fileID: 689367569}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8c1d2ca7f6d93734d858e88b0a8c79d9, type: 3}

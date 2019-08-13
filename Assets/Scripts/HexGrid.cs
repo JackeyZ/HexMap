@@ -16,9 +16,8 @@ public class HexGrid : MonoBehaviour
 
     public int seed;                                        // 随机数种子
 
-    public int cellCountX = 20, cellCountZ = 15;                             // 六边形总数目
-
-    public Color[] colors;                                  // 不同地形的颜色
+    public int cellCountX = 20, cellCountZ = 15;             // 六边形总数目
+    
 
     HexGridChunk[] chunks;                                  // 网格块数组
 
@@ -29,7 +28,6 @@ public class HexGrid : MonoBehaviour
         {
             HexMetrics.noiseSource = noiseSource;
             HexMetrics.InitializeHashGrid(seed);
-            HexMetrics.colors = colors;
         }
     }
 
@@ -37,7 +35,6 @@ public class HexGrid : MonoBehaviour
     {
         HexMetrics.noiseSource = noiseSource;
         HexMetrics.InitializeHashGrid(seed);
-        HexMetrics.colors = colors;
         CreateMap(cellCountX, cellCountZ);
     }
     public bool CreateMap(int x, int z)

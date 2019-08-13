@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: VertexColorsMat
-  m_Shader: {fileID: 4800000, guid: 9ef0584772a79e041bfba437f25a1625, type: 3}
+  m_Name: TerrainMat
+  m_Shader: {fileID: 4800000, guid: e3eef9c29676e7c41992734c688e1550, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -40,7 +40,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 18700000, guid: 9916f7a76cf0d874b9c3b2c1883cd185, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:

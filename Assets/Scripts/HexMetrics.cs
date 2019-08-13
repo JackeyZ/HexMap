@@ -97,8 +97,6 @@ public static class HexMetrics
 
     public const float bridgeDesignLength = 7f;                                 // 桥梁预制体默认长度（scale.z）
 
-    public static Color[] colors;                                               // 不同地形的颜色（在HexGrid里初始化）
-
     /// <summary>
     /// 根据方向获取三角面的第一个顶点
     /// </summary>

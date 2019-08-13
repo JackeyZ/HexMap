@@ -32,7 +32,7 @@ public class HexCell : MonoBehaviour
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
-    private int elevation = 0;         // 高度
+    private int elevation = 0;      // 高度
 
     /// <summary>
     /// 偏移坐标（X,Y,Z）
@@ -118,17 +118,6 @@ public class HexCell : MonoBehaviour
         get
         {
             return transform.localPosition;
-        }
-    }
-
-    /// <summary>
-    /// 纯色区颜色
-    /// </summary>
-    public Color Color
-    {
-        get
-        {
-            return HexMetrics.colors[terrainTypeIndex];
         }
     }
 
