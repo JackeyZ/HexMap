@@ -414,9 +414,9 @@ public class HexGrid : MonoBehaviour
                 current.EnableHighlight(Color.white);
                 current = current.PathFrom;
             }
+            currentPathTo.EnableHighlight(Color.red);
         }
         currentPathFrom.EnableHighlight(Color.blue);
-        currentPathTo.EnableHighlight(Color.red);
     }
 
     /// <summary>
