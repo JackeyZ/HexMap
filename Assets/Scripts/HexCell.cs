@@ -7,11 +7,13 @@ using System.IO;
 /// </summary>
 public class HexCell : MonoBehaviour
 {
-    public Text label;              // 坐标Text
-    
-    private int terrainTypeIndex = 0;   // 地形类型下标
+    public Text label;                          // 坐标Text
 
-    public HexGridChunk chunk;      // 所属网格块的引用
+    public Image highlight;                     // 网格选中高亮
+
+    private int terrainTypeIndex = 0;           // 地形类型下标
+
+    public HexGridChunk chunk;                  // 所属网格块的引用
 
     bool hasIncomingRiver, hasOutgoingRiver;
 
@@ -32,7 +34,13 @@ public class HexCell : MonoBehaviour
     [SerializeField]
     bool[] roads;                   // 六个方向是否有道路
 
-    private int elevation = 0;      // 高度
+    bool showUI = false;            // 是否显示六边形内的UI
+
+    private int elevation = int.MinValue;      // 高度，在HexGrid里create的时候初始化为0
+
+    int distance = int.MaxValue;    // 自己与选中六边形之间的距离
+
+    int searchPhase;
 
     /// <summary>
     /// 偏移坐标（X,Y,Z）
@@ -59,7 +67,6 @@ public class HexCell : MonoBehaviour
         set
         {
             coordinates = value;
-            UpdateText();
         }
     }
 
@@ -140,6 +147,46 @@ public class HexCell : MonoBehaviour
         }
     }
 
+    #region 寻路相关属性
+    /// <summary>
+    /// 寻路时的父六边形
+    /// </summary>
+    public HexCell PathFrom { get; set; }
+
+    /// <summary>
+    /// 用于存储寻路时到终点的估计距离，若该值为0，则说明是一个普通的广度优先搜索寻路（非启发式寻路）
+    /// </summary>
+    public int SearchHeuristic { get; set; }
+
+    /// <summary>
+    /// 用于指向在寻路中与自己同优先级的邻接链表的下一个格子
+    /// </summary>
+    public HexCell NextWithSamePriority { get; set; } 
+
+    /// <summary>
+    /// 用于寻路中未访问边界格子的访问优先级
+    /// </summary>
+    public int SearchPriority
+    {
+        get
+        {
+            return distance + SearchHeuristic;
+        }
+    }
+    public int Distance
+    {
+        get
+        {
+            return distance;
+        }
+
+        set
+        {
+            distance = value;
+        }
+    }
+
+    #endregion
 
     #region 河流属性
     /// <summary>
@@ -344,6 +391,7 @@ public class HexCell : MonoBehaviour
     }
     #endregion
 
+    #region 特征物体等级属性
     /// <summary>
     /// 城市等级
     /// </summary>
@@ -452,12 +500,8 @@ public class HexCell : MonoBehaviour
             return specialIndex > 0;
         }
     }
+    #endregion
 
-
-    public void UpdateText()
-    {
-        //label.text = Coordinates.ToString(); // 坐标文字
-    }
 
     public HexCell GetNeighbor(HexDirection direction)
     {
@@ -775,4 +819,83 @@ public class HexCell : MonoBehaviour
         }                                                                                                              //0010 0110 & 0000 1000 = 0000 0000
     }
     #endregion
+
+    #region UI
+    /// <summary>
+    /// 是否显示六边形内的UI
+    /// </summary>
+    public bool ShowUI
+    {
+        get
+        {
+            return showUI;
+        }
+
+        set
+        {
+            if (value != showUI)
+            {
+                showUI = value;
+                UpdateDistanceLabel();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 距离文字
+    /// </summary>
+    void UpdateDistanceLabel()
+    {
+        label.gameObject.SetActive(showUI);
+    }
+
+    public void SetLabel(string str = "")
+    {
+        label.text = str;
+    }
+
+    /// <summary>
+    /// 隐藏选中高亮
+    /// </summary>
+    public void DisableHighlight()
+    {
+        highlight.enabled = false;
+    }
+
+    /// <summary>
+    /// 显示选中高亮
+    /// </summary>
+    public void EnableHighlight(Color color)
+    {
+        highlight.color = color;
+        highlight.enabled = true;
+    }
+    /// <summary>
+    /// 显示选中高亮
+    /// </summary>
+    public void EnableHighlight()
+    {
+        highlight.color = Color.white;
+        highlight.enabled = true;
+    }
+    #endregion
+
+
+
+    /// <summary>
+    /// 当前格子寻路搜索进程
+    /// </summary>
+    public int SearchPhase
+    {
+        get
+        {
+            return searchPhase;
+        }
+
+        set
+        {
+            searchPhase = value;
+        }
+    }
+
 }

@@ -106,4 +106,16 @@ public struct HexCoordinates
     {
         return X.ToString() + "\n" + Y.ToString() + "\n" + Z.ToString();
     }
+
+
+    /// <summary>
+    /// 根据坐标计算自己到这个坐标的距离
+    /// </summary>
+    /// <param name="coordinates"></param>
+    /// <returns></returns>
+    public int DistanceTo(HexCoordinates otherCoordinates)
+    {
+        int[] dis = { Mathf.Abs(X - otherCoordinates.X), Mathf.Abs(Y - otherCoordinates.Y), Mathf.Abs(Z - otherCoordinates.Z) }; // 各坐标的差值绝对值
+        return Mathf.Max(dis);  // 取最大的绝对值，就是距离
+    }
 }

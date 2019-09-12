@@ -1,27 +1,38 @@
 ﻿using UnityEngine;
 using System.IO;
+using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// 管理整个六边形网格地图
 /// </summary>
 public class HexGrid : MonoBehaviour
 {
-    public HexGridChunk chunkPrefab;                        // 块预制体
+    public HexGridChunk chunkPrefab;                         // 块预制体
 
-    public HexCell cellPrefab;                              // 六边形预制体
+    public HexCell cellPrefab;                               // 六边形预制体
 
     public Texture2D noiseSource;
 
-    int chunkCountX, chunkCountZ;                           // 网格块数目（把所有六边形分成多少块）
+    int chunkCountX, chunkCountZ;                            // 网格块数目（把所有六边形分成多少块）
 
-    public int seed;                                        // 随机数种子
+    public int seed;                                         // 随机数种子
 
     public int cellCountX = 20, cellCountZ = 15;             // 六边形总数目
     
 
-    HexGridChunk[] chunks;                                  // 网格块数组
+    HexGridChunk[] chunks;                                   // 网格块数组
 
     HexCell[] cells;
+
+    HexCellPriorityQueue searchFrontier;                     // 寻路的边界队列，用于存储未访问的边界格子
+
+    int searchFrontierPhase;                                 // 搜索进程
+
+    HexCell currentPathFrom, currentPathTo;                  // 用于记录寻路起点与终点
+
+    bool currentPathExists;                                  // 寻路结果
+
     void OnEnable()
     {
         if (!HexMetrics.noiseSource)
@@ -44,6 +55,9 @@ public class HexGrid : MonoBehaviour
             Debug.LogError("不支持的大小！横向必须是" + HexMetrics.chunkSizeX + "的倍数，纵向必须是" + HexMetrics.chunkSizeZ + "的整数。");
             return false;
         }
+
+        // 清除之前的寻路路径
+        ClearPath();
 
         // 如果已经创建了地图，就先把场景上旧的地图销毁掉
         if (chunks != null)
@@ -92,6 +106,14 @@ public class HexGrid : MonoBehaviour
             {
                 chunks[i].Refresh();
             }
+        }
+    }
+
+    public void ShowUI(bool showUI)
+    {
+        foreach (var item in cells)
+        {
+            item.ShowUI = showUI;
         }
     }
 
@@ -152,6 +174,7 @@ public class HexGrid : MonoBehaviour
         HexCell cell = cells[i] = Instantiate<HexCell>(cellPrefab);
         //cell.transform.SetParent(transform, false);
         cell.transform.localPosition = position;
+        cell.Elevation = 0;
         cell.Coordinates = HexCoordinates.FromOffsetCoordinates(x, z);
 
         #region 设置邻里关系
@@ -230,6 +253,9 @@ public class HexGrid : MonoBehaviour
     /// <param name="header">地图版本号，可根据不同版本号作对应操作</param>
     public void Load(BinaryReader reader, int header)
     {
+        // 清理之前的寻路路径
+        ClearPath();
+
         // 读取地图大小并创建对应大小的地图
         int x = reader.ReadInt32();
         int z = reader.ReadInt32();
@@ -246,6 +272,172 @@ public class HexGrid : MonoBehaviour
         {
             cells[i].Load(reader);
         }
+    }
+    #endregion
+
+    #region 寻路
+
+    /// <summary>
+    /// 两个格子之间的距离
+    /// </summary>
+    /// <param name="fromCell">当前所在格子</param>
+    /// <param name="toCell">目标格子</param>
+    /// <param name="speed">单回合移动预算</param>
+    public void FindPath(HexCell fromCell, HexCell toCell, int speed)
+    {
+        //System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+        //sw.Start();
+
+        ClearPath();                                                    // 清除上一次的路径
+        currentPathFrom = fromCell;
+        currentPathTo = toCell;
+        currentPathExists = Search(fromCell, toCell, speed);
+        ShowPath(speed);                                                // 展示路径
+
+        //sw.Stop();
+        //Debug.Log(sw.ElapsedMilliseconds);
+    }
+
+    bool Search(HexCell fromCell, HexCell toCell, int speed)
+    {
+        searchFrontierPhase += 2;
+        if (searchFrontier == null)
+        {
+            searchFrontier = new HexCellPriorityQueue();
+        }
+        else {
+            searchFrontier.Clear();
+        }
+        
+        fromCell.SearchPhase = searchFrontierPhase;
+        fromCell.Distance = 0;
+        searchFrontier.Enqueue(fromCell);
+
+        // 遍历未访问的边界格子
+        while (searchFrontier.Count > 0)
+        {
+            HexCell current = searchFrontier.Dequeue();
+            current.SearchPhase += 1;
+
+            // 判断是否找到目标格子
+            if (current == toCell)
+            {
+                return true;
+            }
+
+            int currentTurn = current.Distance / speed;      // 到达当前格子所需的回合数
+
+            // 把当前格子未访问的可达邻居全部加到待访问格子里
+            for (HexDirection d = HexDirection.NE; d <= HexDirection.NW; d++)
+            {
+                HexCell neighbor = current.GetNeighbor(d);
+
+                if (neighbor == null || neighbor.SearchPhase > searchFrontierPhase) // 跳过对应方向没有邻居的或已经找到最短路径的单元格
+                {
+                    continue;
+                }
+
+                // 跳过在水下的格子
+                if (neighbor.IsUnderwater)
+                {
+                    continue;
+                }
+
+                HexEdgeType edgeType = current.GetEdgeType(neighbor);
+
+                // 跳过陡坡
+                if (current.GetEdgeType(neighbor) == HexEdgeType.Cliff)
+                {
+                    continue;
+                }
+
+                int moveCost;
+
+                // 道路行走成本为1
+                if (current.HasRoadThroughEdge(d))
+                {
+                    moveCost = 1;
+                }
+                // 跳过没有道路连通的围墙
+                else if (current.Walled != neighbor.Walled)
+                {
+                    continue;
+                }
+                else
+                {
+                    moveCost = edgeType == HexEdgeType.Flat ? 5 : 10;
+                    moveCost += neighbor.UrbanLevel + neighbor.FarmLevel + neighbor.PlantLevel;
+                }
+
+                int distance = current.Distance + moveCost;
+                int turn = distance / speed;    // 用刚得到的邻居距离，算出起点出到达邻居所需的回合数
+                
+                // 判断该邻居是否在下一个回合才能到达
+                if (turn > currentTurn)
+                {
+                    distance = turn * speed + moveCost;         // 不直接使用上面distance的原因是，当前回合剩余行动点在下一回合会清零，所以到达该邻居实际上的移动成本更高
+                }
+
+                if (neighbor.SearchPhase < searchFrontierPhase)
+                {
+                    neighbor.SearchPhase = searchFrontierPhase;
+                    neighbor.Distance = distance;
+                    neighbor.PathFrom = current;
+                    neighbor.SearchHeuristic = neighbor.Coordinates.DistanceTo(toCell.Coordinates);
+                    searchFrontier.Enqueue(neighbor);
+                }
+                else if (distance < neighbor.Distance)
+                {
+                    int oldPriority = neighbor.SearchPriority;
+                    neighbor.Distance = distance;
+                    neighbor.PathFrom = current;
+                    searchFrontier.Change(neighbor, oldPriority);
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 显示搜索出来的路径
+    /// </summary>
+    /// <param name="speed"></param>
+    void ShowPath(int speed)
+    {
+        if (currentPathExists)
+        {
+            HexCell current = currentPathTo;
+            while (current != currentPathFrom)
+            {
+                int turn = current.Distance / speed;
+                current.SetLabel(turn.ToString());
+                current.EnableHighlight(Color.white);
+                current = current.PathFrom;
+            }
+        }
+        currentPathFrom.EnableHighlight(Color.blue);
+        currentPathTo.EnableHighlight(Color.red);
+    }
+
+    /// <summary>
+    /// 隐藏搜索出来的路径
+    /// </summary>
+    /// <param name="speed"></param>
+    void ClearPath()
+    {
+        if (currentPathExists)
+        {
+            HexCell current = currentPathTo;
+            while (current != currentPathFrom)
+            {
+                current.SetLabel(null);
+                current.DisableHighlight();
+                current = current.PathFrom;
+            }
+            current.DisableHighlight();
+            currentPathExists = false;
+        }
+        currentPathFrom = currentPathTo = null;
     }
     #endregion
 }

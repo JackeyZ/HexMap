@@ -155,22 +155,22 @@ public struct EdgeVertices
 }
 
 /// <summary>
-/// 河流Editor状态
+/// Toggle Editor状态
 /// </summary>
 enum OptionalToggle
 {
     /// <summary>
-    /// 忽略河流
+    /// 忽略
     /// </summary>
     Ignore,
 
     /// <summary>
-    /// 添加河流
+    /// 添加
     /// </summary>
     Yes,
 
     /// <summary>
-    /// 移除河流
+    /// 移除
     /// </summary>
     No
 }

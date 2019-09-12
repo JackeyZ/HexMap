@@ -6,7 +6,9 @@ public class HexMapEditor : MonoBehaviour
 {
     public HexGrid hexGrid;
 
-    int activeTerrainTypeIndex;     // 当前地形类型引索
+    public Material terrainMaterial;    // 地形材质
+
+    int activeTerrainTypeIndex = -1;     // 当前地形类型引索
 
     int activeElevation;            // 高度
 
@@ -32,6 +34,8 @@ public class HexMapEditor : MonoBehaviour
 
     bool applySpecialIndex = false; // 是否开启特殊特征物体下标编辑
 
+    bool editMode = true;          // 是否开启编辑模式
+
     int brushSize = 0;              // 画刷大小
 
     OptionalToggle riverMode;       // 河流添加模式
@@ -46,8 +50,13 @@ public class HexMapEditor : MonoBehaviour
 
     HexCell previousCell;           // 用于在拖拽中记录上一个的六边形
 
+    HexCell searchFromCell;         // 寻路的起始六边形
+
+    HexCell searchToCell;           // 寻路的目标六边形
+
     void Awake()
     {
+        ShowGrid(false);            // 默认不显示网格
     }
 
     void Update()
@@ -178,6 +187,18 @@ public class HexMapEditor : MonoBehaviour
         activeSpecialIndex = (int)index;
     }
 
+    /// <summary>
+    /// 是否开启地图编辑模式
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void SetEditMode(bool toggle)
+    {
+        editMode = toggle;
+
+        hexGrid.ShowUI(!toggle);
+    }
+ 
+
     void HandleInput()
     {
         Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -193,7 +214,38 @@ public class HexMapEditor : MonoBehaviour
             {
                 isDrag = false;
             }
-            EditCells(hexGrid.GetCell(hit.point));
+
+            if (editMode)
+            {
+                EditCells(hexGrid.GetCell(hit.point));
+            }
+            else if (Input.GetKey(KeyCode.LeftShift) && searchToCell != currentCell)
+            {
+                if (searchFromCell)
+                {
+                    searchFromCell.DisableHighlight();
+                }
+                // 设置起始点
+                searchFromCell = currentCell;                                      
+                searchFromCell.EnableHighlight(Color.blue);
+
+                // 如果已经设置目标点则寻路
+                if (searchToCell)
+                {
+                    hexGrid.FindPath(searchFromCell, searchToCell, 24);
+                }
+            }
+            else if(searchFromCell && searchFromCell != currentCell)
+            {
+                if (searchToCell != currentCell)
+                {
+                    // 设置目标点
+                    searchToCell = currentCell;
+                    // 寻路                                    
+                    hexGrid.FindPath(searchFromCell, searchToCell, 24); // 单回合移动成本暂时用24，现在默认一格移动成本是5
+                }
+            }
+
             previousCell = currentCell;
             isDrag = true;
         }
@@ -351,4 +403,24 @@ public class HexMapEditor : MonoBehaviour
     {
         walledMode = (OptionalToggle)mode;
     }
+
+
+    /// <summary>
+    /// 是否显示网格
+    /// </summary>
+    /// <param name="visible"></param>
+    /// <returns></returns>
+    public void ShowGrid(bool visible)
+    {
+        if (visible)
+        {
+            terrainMaterial.EnableKeyword("GRID_ON");
+        }
+        else
+        {
+            terrainMaterial.DisableKeyword("GRID_ON");
+        }
+
+    }
+
 }
