@@ -51,9 +51,5 @@ MonoBehaviour:
   seed: 1234
   cellCountX: 20
   cellCountZ: 15
-  colors:
-  - {r: 1, g: 1, b: 0, a: 1}
-  - {r: 0, g: 0.6666667, b: 0, a: 1}
-  - {r: 0, g: 0, b: 1, a: 1}
-  - {r: 1, g: 0, b: 0, a: 1}
-  - {r: 1, g: 1, b: 1, a: 1}
+  unitPrefab: {fileID: 2860770762875054938, guid: 7128d989bcae6a74b842c14c2e7e4ddc,
+    type: 3}

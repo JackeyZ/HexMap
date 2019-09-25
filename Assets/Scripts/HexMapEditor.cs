@@ -6,9 +6,9 @@ public class HexMapEditor : MonoBehaviour
 {
     public HexGrid hexGrid;
 
-    public Material terrainMaterial;    // 地形材质
+    public Material terrainMaterial;        // 地形材质
 
-    int activeTerrainTypeIndex = -1;     // 当前地形类型引索
+    int activeTerrainTypeIndex = -1;        // 当前地形类型引索
 
     int activeElevation;            // 高度
 
@@ -57,19 +57,35 @@ public class HexMapEditor : MonoBehaviour
     void Awake()
     {
         ShowGrid(false);            // 默认不显示网格
+        SetEditMode(false);         // 默认不在编辑模式
     }
 
     void Update()
     {
-        // 点击鼠标左键，并且该次点击事件没有穿透GameObject
-        if (Input.GetMouseButton(0) && !EventSystem.current.IsPointerOverGameObject())
+        // 如果该次点击事件没有穿透GameObject
+        if (!EventSystem.current.IsPointerOverGameObject())
         {
-            HandleInput();
+            // 点击鼠标左键
+            if (Input.GetMouseButton(0))
+            {
+                HandleInput();
+                return;
+            }
+
+            // 创建或销毁移动单位
+            if (Input.GetKeyDown(KeyCode.U))
+            {
+                if (Input.GetKey(KeyCode.LeftShift))
+                {
+                    DestroyUnit();
+                }
+                else {
+                    CreateUnit();
+                }
+                return;
+            }
         }
-        else
-        {
-            previousCell = null;        // 没有拖拽的时候把上一个的六边形置空
-        }
+        previousCell = null;        // 没有拖拽的时候把上一个的六边形置空
     }
     
     /// <summary>
@@ -193,19 +209,18 @@ public class HexMapEditor : MonoBehaviour
     /// <param name="toggle"></param>
     public void SetEditMode(bool toggle)
     {
-        editMode = toggle;
+        //editMode = toggle;
 
-        hexGrid.ShowUI(!toggle);
+        //hexGrid.ShowUI(!toggle);
+        enabled = toggle;
     }
  
 
     void HandleInput()
     {
-        Ray inputRay = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-        if (Physics.Raycast(inputRay, out hit))
+        HexCell currentCell = GetCellUnderCursor();
+        if (currentCell)
         {
-            HexCell currentCell = hexGrid.GetCell(hit.point);
             if (previousCell && previousCell != currentCell)
             {
                 ValidateDrag(currentCell);
@@ -215,36 +230,36 @@ public class HexMapEditor : MonoBehaviour
                 isDrag = false;
             }
 
-            if (editMode)
-            {
-                EditCells(hexGrid.GetCell(hit.point));
-            }
-            else if (Input.GetKey(KeyCode.LeftShift) && searchToCell != currentCell)
-            {
-                if (searchFromCell)
-                {
-                    searchFromCell.DisableHighlight();
-                }
-                // 设置起始点
-                searchFromCell = currentCell;                                      
-                searchFromCell.EnableHighlight(Color.blue);
+            //if (editMode)
+            //{
+                EditCells(currentCell);
+            //}
+            //else if (Input.GetKey(KeyCode.LeftShift) && searchToCell != currentCell)
+            //{
+            //    if (searchFromCell)
+            //    {
+            //        searchFromCell.DisableHighlight();
+            //    }
+            //    // 设置起始点
+            //    searchFromCell = currentCell;                                      
+            //    searchFromCell.EnableHighlight(Color.blue);
 
-                // 如果已经设置目标点则寻路
-                if (searchToCell)
-                {
-                    hexGrid.FindPath(searchFromCell, searchToCell, 24);
-                }
-            }
-            else if(searchFromCell && searchFromCell != currentCell)
-            {
-                if (searchToCell != currentCell)
-                {
-                    // 设置目标点
-                    searchToCell = currentCell;
-                    // 寻路                                    
-                    hexGrid.FindPath(searchFromCell, searchToCell, 24); // 单回合移动成本暂时用24，现在默认一格移动成本是5
-                }
-            }
+            //    // 如果已经设置目标点则寻路
+            //    if (searchToCell)
+            //    {
+            //        hexGrid.FindPath(searchFromCell, searchToCell, 24);
+            //    }
+            //}
+            //else if(searchFromCell && searchFromCell != currentCell)
+            //{
+            //    if (searchToCell != currentCell)
+            //    {
+            //        // 设置目标点
+            //        searchToCell = currentCell;
+            //        // 寻路                                    
+            //        hexGrid.FindPath(searchFromCell, searchToCell, 24); // 单回合移动成本暂时用24，现在默认一格移动成本是5
+            //    }
+            //}
 
             previousCell = currentCell;
             isDrag = true;
@@ -267,6 +282,39 @@ public class HexMapEditor : MonoBehaviour
             }
         }
         isDrag = false;
+    }
+
+    /// <summary>
+    /// 获取当前鼠标触碰到的六边形
+    /// </summary>
+    /// <returns></returns>
+    HexCell GetCellUnderCursor()
+    {
+        return hexGrid.GetCell(Camera.main.ScreenPointToRay(Input.mousePosition));
+    }
+
+    /// <summary>
+    /// 实例化移动单位
+    /// </summary>
+    void CreateUnit()
+    {
+        HexCell cell = GetCellUnderCursor();
+        if (cell && !cell.Unit)
+        {
+            hexGrid.AddUnit(Instantiate(HexUnit.unitPrefab), cell, Random.Range(0f, 360f));
+        }
+    }
+
+    /// <summary>
+    /// 销毁移动单位
+    /// </summary>
+    void DestroyUnit()
+    {
+        HexCell cell = GetCellUnderCursor();
+        if (cell && cell.Unit)
+        {
+            hexGrid.RemoveUnit(cell.Unit);
+        }
     }
 
     void EditCells(HexCell center)

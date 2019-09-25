@@ -137,7 +137,7 @@ public class SaveLoadMenu : MonoBehaviour
     {
         using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.Create)))    // 使用using可在作用域结束的时候自动调用 writer.Close();
         {                                                                                   // 因为writer类和文件流类都实现了IDisposable接口。这些对象具有Dispose方法，它在退出使用范围的时候会被隐式调用。
-            writer.Write(1);        // 预留一个空的整形作为地图版本号
+            writer.Write(2);        // 预留一个空的整形作为地图版本号
             hexGrid.Save(writer);
         }
     }
@@ -156,7 +156,7 @@ public class SaveLoadMenu : MonoBehaviour
         using (BinaryReader reader = new BinaryReader(File.OpenRead(path)))                 // File.OpenRead(path) 相当于 File.Open(path, FileMode.Open)
         {
             int header = reader.ReadInt32();
-            if (header == 1)
+            if (header <= 2)
             {
                 hexGrid.Load(reader, header);
                 HexMapCamera.ValidatePosition();    // 矫正摄像机位置

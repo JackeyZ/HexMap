@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.IO;
+using UnityEngine;
 
 /// <summary>
 /// 单个六边形的偏移坐标，X、Y、Z，分别代表该六边形相对于地图原点在某个轴向上偏移了多少个单位，由于对称的关系所以有：X + Y + Z = 0
@@ -117,5 +118,23 @@ public struct HexCoordinates
     {
         int[] dis = { Mathf.Abs(X - otherCoordinates.X), Mathf.Abs(Y - otherCoordinates.Y), Mathf.Abs(Z - otherCoordinates.Z) }; // 各坐标的差值绝对值
         return Mathf.Max(dis);  // 取最大的绝对值，就是距离
+    }
+
+    /// <summary>
+    /// 把坐标的xy写入文件
+    /// </summary>
+    /// <param name="writer"></param>
+    public void Save(BinaryWriter writer)
+    {
+        writer.Write(x);
+        writer.Write(z);
+    }
+
+    public static HexCoordinates Load(BinaryReader reader)
+    {
+        HexCoordinates c;
+        c.x = reader.ReadInt32();
+        c.z = reader.ReadInt32();
+        return c;
     }
 }

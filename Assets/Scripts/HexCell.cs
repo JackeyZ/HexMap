@@ -15,6 +15,12 @@ public class HexCell : MonoBehaviour
 
     public HexGridChunk chunk;                  // 所属网格块的引用
 
+
+    /// <summary>
+    /// 格子上的移动单位（暂时一个格子只允许有一个单位）
+    /// </summary>
+    public HexUnit Unit { get; set; }
+
     bool hasIncomingRiver, hasOutgoingRiver;
 
     HexDirection incomingRiver, outgoingRiver;
@@ -107,14 +113,19 @@ public class HexCell : MonoBehaviour
     }
 
     /// <summary>
-    /// 根据高度，刷新六边形GameObject的高度
+    /// 当前格子寻路搜索进程
     /// </summary>
-    void RefreshPosition()
+    public int SearchPhase
     {
-        Vector3 position = transform.localPosition;
-        position.y = elevation * HexMetrics.elevationStep;
-        position.y += (HexMetrics.SampleNoise(position).y * 2f - 1f) * HexMetrics.elevationPerturbStrength; // 高度噪声偏移
-        transform.localPosition = position;
+        get
+        {
+            return searchPhase;
+        }
+
+        set
+        {
+            searchPhase = value;
+        }
     }
 
     /// <summary>
@@ -503,6 +514,17 @@ public class HexCell : MonoBehaviour
     #endregion
 
 
+    /// <summary>
+    /// 根据高度，刷新六边形GameObject的高度
+    /// </summary>
+    void RefreshPosition()
+    {
+        Vector3 position = transform.localPosition;
+        position.y = elevation * HexMetrics.elevationStep;
+        position.y += (HexMetrics.SampleNoise(position).y * 2f - 1f) * HexMetrics.elevationPerturbStrength; // 高度噪声偏移
+        transform.localPosition = position;
+    }
+
     public HexCell GetNeighbor(HexDirection direction)
     {
         return neighbors[(int)direction];
@@ -705,6 +727,12 @@ public class HexCell : MonoBehaviour
     void RefreshSelfOnly()
     {
         chunk.Refresh();
+
+        // 矫正移动单位坐标
+        if (Unit)
+        {
+            Unit.ValidateLocation();
+        }
     }
 
     /// <summary>
@@ -724,6 +752,11 @@ public class HexCell : MonoBehaviour
                 }
             }
             chunk.Refresh();
+            // 矫正移动单位坐标
+            if (Unit)
+            {
+                Unit.ValidateLocation();
+            }
         }
     }
 
@@ -878,24 +911,7 @@ public class HexCell : MonoBehaviour
         highlight.color = Color.white;
         highlight.enabled = true;
     }
+
     #endregion
-
-
-
-    /// <summary>
-    /// 当前格子寻路搜索进程
-    /// </summary>
-    public int SearchPhase
-    {
-        get
-        {
-            return searchPhase;
-        }
-
-        set
-        {
-            searchPhase = value;
-        }
-    }
 
 }

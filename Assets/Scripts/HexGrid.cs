@@ -19,7 +19,8 @@ public class HexGrid : MonoBehaviour
     public int seed;                                         // 随机数种子
 
     public int cellCountX = 20, cellCountZ = 15;             // 六边形总数目
-    
+
+    public HexUnit unitPrefab;
 
     HexGridChunk[] chunks;                                   // 网格块数组
 
@@ -33,12 +34,15 @@ public class HexGrid : MonoBehaviour
 
     bool currentPathExists;                                  // 寻路结果
 
+    List<HexUnit> units = new List<HexUnit>();               // 储存地图上所有移动单位
+
     void OnEnable()
     {
         if (!HexMetrics.noiseSource)
         {
             HexMetrics.noiseSource = noiseSource;
             HexMetrics.InitializeHashGrid(seed);
+            HexUnit.unitPrefab = unitPrefab;
         }
     }
 
@@ -46,6 +50,7 @@ public class HexGrid : MonoBehaviour
     {
         HexMetrics.noiseSource = noiseSource;
         HexMetrics.InitializeHashGrid(seed);
+        HexUnit.unitPrefab = unitPrefab;
         CreateMap(cellCountX, cellCountZ);
     }
     public bool CreateMap(int x, int z)
@@ -139,7 +144,11 @@ public class HexGrid : MonoBehaviour
         position = transform.InverseTransformPoint(position);
         HexCoordinates coordinates = HexCoordinates.FromPosition(position);
         int index = coordinates.X + coordinates.Z * cellCountX + coordinates.Z / 2;
-        return cells[index];
+        if (index < cells.Length)
+        {
+            return cells[index];
+        }
+        return null;
     }
 
     public HexCell GetCell(HexCoordinates coordinates)
@@ -155,6 +164,21 @@ public class HexGrid : MonoBehaviour
             return null;
         }
         return cells[x + z * cellCountX];
+    }
+
+    /// <summary>
+    /// 传入一条射线，获取射线触碰到的六边形
+    /// </summary>
+    /// <param name="ray"></param>
+    /// <returns></returns>
+    public HexCell GetCell(Ray ray)
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit))
+        {
+            return GetCell(hit.point);
+        }
+        return null;
     }
 
     /// <summary>
@@ -244,6 +268,13 @@ public class HexGrid : MonoBehaviour
         {
             cells[i].Save(writer);
         }
+
+        // 储存移动单位数据
+        writer.Write(units.Count);
+        for (int i = 0; i < units.Count; i++)
+        {
+            units[i].Save(writer);
+        }
     }
 
     /// <summary>
@@ -255,6 +286,9 @@ public class HexGrid : MonoBehaviour
     {
         // 清理之前的寻路路径
         ClearPath();
+
+        // 清理移动单位
+        ClearUnits();
 
         // 读取地图大小并创建对应大小的地图
         int x = reader.ReadInt32();
@@ -272,10 +306,31 @@ public class HexGrid : MonoBehaviour
         {
             cells[i].Load(reader);
         }
+
+        // 存档版本2以上才有移动单位数据
+        if (header >= 2)
+        {
+            // 读取移动单位
+            int unitCount = reader.ReadInt32();
+            for (int i = 0; i < unitCount; i++)
+            {
+                HexUnit.Load(reader, this);
+            }
+        }
     }
     #endregion
 
     #region 寻路
+    /// <summary>
+    /// 是否已经找到有效的寻路路径
+    /// </summary>
+    public bool HasPath
+    {
+        get
+        {
+            return currentPathExists;
+        }
+    }
 
     /// <summary>
     /// 两个格子之间的距离
@@ -325,7 +380,7 @@ public class HexGrid : MonoBehaviour
                 return true;
             }
 
-            int currentTurn = current.Distance / speed;      // 到达当前格子所需的回合数
+            int currentTurn = (current.Distance - 1) / speed;                       // 到达当前格子所需的回合数
 
             // 把当前格子未访问的可达邻居全部加到待访问格子里
             for (HexDirection d = HexDirection.NE; d <= HexDirection.NW; d++)
@@ -339,6 +394,12 @@ public class HexGrid : MonoBehaviour
 
                 // 跳过在水下的格子
                 if (neighbor.IsUnderwater)
+                {
+                    continue;
+                }
+
+                // 跳过已经有单位占据的格子
+                if (neighbor.Unit)
                 {
                     continue;
                 }
@@ -370,7 +431,7 @@ public class HexGrid : MonoBehaviour
                 }
 
                 int distance = current.Distance + moveCost;
-                int turn = distance / speed;    // 用刚得到的邻居距离，算出起点出到达邻居所需的回合数
+                int turn = (distance - 1) / speed;    // 用刚得到的邻居距离，算出起点出到达邻居所需的回合数
                 
                 // 判断该邻居是否在下一个回合才能到达
                 if (turn > currentTurn)
@@ -409,7 +470,7 @@ public class HexGrid : MonoBehaviour
             HexCell current = currentPathTo;
             while (current != currentPathFrom)
             {
-                int turn = current.Distance / speed;
+                int turn = (current.Distance - 1) / speed;
                 current.SetLabel(turn.ToString());
                 current.EnableHighlight(Color.white);
                 current = current.PathFrom;
@@ -423,7 +484,7 @@ public class HexGrid : MonoBehaviour
     /// 隐藏搜索出来的路径
     /// </summary>
     /// <param name="speed"></param>
-    void ClearPath()
+    public void ClearPath()
     {
         if (currentPathExists)
         {
@@ -438,6 +499,67 @@ public class HexGrid : MonoBehaviour
             currentPathExists = false;
         }
         currentPathFrom = currentPathTo = null;
+    }
+
+    /// <summary>
+    /// 获取寻路找到的路径点列表
+    /// </summary>
+    /// <returns></returns>
+    public List<HexCell> GetPath()
+    {
+        if (!currentPathExists)
+        {
+            return null;
+        }
+        List<HexCell> path = ListPool<HexCell>.Get();
+        
+        // 遍历终点到起点
+        for (HexCell c = currentPathTo; c != currentPathFrom; c = c.PathFrom)
+        {
+            path.Add(c);
+        }
+        path.Add(currentPathFrom);
+
+        path.Reverse();             // 反转列表
+        return path;
+    }
+    #endregion
+
+    #region 移动单位相关
+    /// <summary>
+    /// 删除所有移动单位
+    /// </summary>
+    void ClearUnits()
+    {
+        for (int i = 0; i < units.Count; i++)
+        {
+            units[i].Die();
+        }
+        units.Clear();
+    }
+
+    /// <summary>
+    /// 添加移动单位
+    /// </summary>
+    /// <param name="unit">移动单位</param>
+    /// <param name="location">单位所在六边形</param>
+    /// <param name="orientation">旋转</param>
+    public void AddUnit(HexUnit unit, HexCell location, float orientation)
+    {
+        units.Add(unit);
+        unit.transform.SetParent(transform, false);
+        unit.Location = location;
+        unit.Orientation = orientation;
+    }
+
+    /// <summary>
+    /// 移除移动单位
+    /// </summary>
+    /// <param name="unit"></param>
+    public void RemoveUnit(HexUnit unit)
+    {
+        units.Remove(unit);
+        unit.Die();
     }
     #endregion
 }
