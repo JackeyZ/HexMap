@@ -16,7 +16,9 @@
 		CGPROGRAM
 			#pragma surface surf Standard fullforwardshadows vertex:vert
 			#pragma target 3.5
-			
+			// 导入获得格子数据的文件
+			#include "CgIncludes/HexCellData.cginc" 
+
 			// 定义一个全局关键字（产生两个shader变体）用于切换是否显示网格，C#中使用Material.EnableKeyword("GRID_ON");和Material.DisableKeyword("GRID_ON");切换
 			#pragma multi_compile _ GRID_ON												
 			
@@ -31,18 +33,36 @@
 			struct Input {
 				float4 color : COLOR;
 				float3 worldPos;				// 顶点世界坐标
-				float3 terrain;
+				float3 terrain;					// 地形类型下标
+				float3 visibility;				// 是否可见（战争迷雾）1表示可见，0表示不可见
 			};
  
 			void vert (inout appdata_full v, out Input data) {
 				UNITY_INITIALIZE_OUTPUT(Input, data);									// 此宏用于将给定类型的名称变量初始化为零。
-				data.terrain = v.texcoord2.xyz;											// 获取第三个uv数据（x是第一个地形类型，y是第二个地形类型，z是第三个地形类型）
+
+				// 获取顶点附近三个六边形格子的数据
+				float4 cell0 = GetCellData(v, 0);
+				float4 cell1 = GetCellData(v, 1);
+				float4 cell2 = GetCellData(v, 2);
+ 
+				// 获取地形数据（x是第一个邻居六边形的地形，y是第二个邻居六边形的地形，z是第三个邻居六边形的地形）
+				data.terrain.x = cell0.w;
+				data.terrain.y = cell1.w;
+				data.terrain.z = cell2.w;		
+				
+				// 是否可见
+				data.visibility.x = cell0.x;
+				data.visibility.y = cell1.x;
+				data.visibility.z = cell2.x;
+				data.visibility = lerp(0.25, 1, data.visibility);
 			}
 
 			float4 GetTerrainColor (Input IN, int index) {
 				float3 uvw = float3(IN.worldPos.xz * 0.02, IN.terrain[index]);
 				float4 c = UNITY_SAMPLE_TEX2DARRAY(_MainTex, uvw);						// 对纹理数组进行取样，参数1、2是UV，参数3是第几个纹理
-				return c * IN.color[index];												// 利用顶点颜色来做混合（splat贴图）（color.r是第一个地形颜色占比，color.g是第二个地形颜色占比，color.b是第三个地形颜色占比）
+				c *= IN.color[index];													// 利用顶点颜色来做混合（splat贴图）（color.r是第一个地形颜色占比，color.g是第二个地形颜色占比，color.b是第三个地形颜色占比）
+				c *= IN.visibility[index];												// 战争迷雾
+				return c;
 			}
 			
 			float4 GetTerrainNormal (Input IN, int index) {

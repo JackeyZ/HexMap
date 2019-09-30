@@ -15,6 +15,15 @@ public class HexCell : MonoBehaviour
 
     public HexGridChunk chunk;                  // 所属网格块的引用
 
+    /// <summary>
+    /// 地图数据纹理管理器引用， hexGrin里CreateCell的时候进行初始化
+    /// </summary>
+    public HexCellShaderData ShaderData { get; set; }
+
+    /// <summary>
+    /// 格子在地图里的下标
+    /// </summary>
+    public int Index { get; set; }
 
     /// <summary>
     /// 格子上的移动单位（暂时一个格子只允许有一个单位）
@@ -47,6 +56,8 @@ public class HexCell : MonoBehaviour
     int distance = int.MaxValue;    // 自己与选中六边形之间的距离
 
     int searchPhase;
+
+    int visibility;                 // 是否可见（>0表示可见）
 
     /// <summary>
     /// 偏移坐标（X,Y,Z）
@@ -153,7 +164,7 @@ public class HexCell : MonoBehaviour
             if (terrainTypeIndex != value)
             {
                 terrainTypeIndex = value;
-                Refresh();
+                ShaderData.RefreshTerrain(this);
             }
         }
     }
@@ -811,6 +822,8 @@ public class HexCell : MonoBehaviour
     {
         // 按照保存顺序读取整形数据
         terrainTypeIndex = reader.ReadByte();
+        ShaderData.RefreshTerrain(this);
+
         elevation = reader.ReadByte() - 100;
         waterLevel = reader.ReadByte();
         urbanLevel = reader.ReadByte();
@@ -910,6 +923,61 @@ public class HexCell : MonoBehaviour
     {
         highlight.color = Color.white;
         highlight.enabled = true;
+    }
+
+    #endregion
+
+    #region 可见性（战争迷雾）
+    /// <summary>
+    /// 是否可见
+    /// </summary>
+    public bool IsVisible
+    {
+        get
+        {
+            return Visibility > 0;
+        }
+    }
+
+    public int Visibility
+    {
+        get
+        {
+            return visibility;
+        }
+
+        set
+        {
+            visibility = value;
+        }
+    }
+
+    /// <summary>
+    /// 每当自己进入单位视野则调用该方法
+    /// </summary>
+    public void IncreaseVisibility()
+    {
+        Visibility += 1;
+        if (Visibility == 1)
+        {
+            ShaderData.RefreshVisibility(this);
+        }
+    }
+
+    /// <summary>
+    /// 每当自己离开单位视野则调用该方法
+    /// </summary>
+    public void DecreaseVisibility()
+    {
+        Visibility -= 1;
+        if (Visibility < 0)
+        {
+            Visibility = 0;
+        }
+        if (Visibility == 0)
+        {
+            ShaderData.RefreshVisibility(this);
+        }
     }
 
     #endregion

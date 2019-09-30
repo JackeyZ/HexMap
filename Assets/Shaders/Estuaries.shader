@@ -1,4 +1,4 @@
-﻿Shader "Custom/Estuaries"
+﻿Shader "Custom/Estuaries" // 河口shader
 {
     Properties
     {
@@ -19,6 +19,7 @@
         #pragma target 3.0
 
 		#include "CgIncludes/water.cginc"
+		#include "CgIncludes/HexCellData.cginc"
 
         sampler2D _MainTex;
 
@@ -27,6 +28,7 @@
             float2 uv_MainTex;
             float3 worldPos;
 			float2 riverUV;
+			float visibility;
         };
 
         half _Glossiness;
@@ -39,8 +41,14 @@
 		// 顶点函数
 		// appdata_full：位置position，切线tangent，法线normal，四个纹理（UV）坐标（texcoord、texcoord1、texcoord2、texcoord3）和颜色。
 		void vert (inout appdata_full v, out Input o) {
-			UNITY_INITIALIZE_OUTPUT(Input, o);		// 此宏用于将给定类型的名称变量初始化为零
+			UNITY_INITIALIZE_OUTPUT(Input, o);							// 此宏用于将给定类型的名称变量初始化为零
 			o.riverUV = v.texcoord1.xy;
+			
+			float4 cell0 = GetCellData(v, 0);
+			float4 cell1 = GetCellData(v, 1);
+
+			o.visibility = cell0.x * v.color.x + cell1.x * v.color.y;
+			o.visibility = lerp(0.25, 1, o.visibility);
 		}
 
         void surf (Input IN, inout SurfaceOutputStandard o)
@@ -58,7 +66,7 @@
 																		// 这里插值之后代表越靠近瀑布river波纹越明显，shoreWater波纹渐渐消失
  
 			fixed4 c = saturate(_Color + water);
-			o.Albedo = c.rgb;
+			o.Albedo = c.rgb * IN.visibility;
 			o.Metallic = _Metallic;
 			o.Smoothness = _Glossiness;
 			o.Alpha = c.a;

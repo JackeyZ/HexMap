@@ -36,6 +36,8 @@ public class HexGrid : MonoBehaviour
 
     List<HexUnit> units = new List<HexUnit>();               // 储存地图上所有移动单位
 
+    HexCellShaderData cellShaderData;                        // 格子数据纹理组件（用于战争迷雾）
+
     void OnEnable()
     {
         if (!HexMetrics.noiseSource)
@@ -51,6 +53,7 @@ public class HexGrid : MonoBehaviour
         HexMetrics.noiseSource = noiseSource;
         HexMetrics.InitializeHashGrid(seed);
         HexUnit.unitPrefab = unitPrefab;
+        cellShaderData = gameObject.AddComponent<HexCellShaderData>(); 
         CreateMap(cellCountX, cellCountZ);
     }
     public bool CreateMap(int x, int z)
@@ -79,6 +82,7 @@ public class HexGrid : MonoBehaviour
         cellCountZ = z;
         chunkCountX = cellCountX / HexMetrics.chunkSizeX;
         chunkCountZ = cellCountZ / HexMetrics.chunkSizeZ;
+        cellShaderData.Initialize(cellCountX, cellCountZ);
         CreateChunks();
         CreateCells();
         return true;
@@ -200,6 +204,8 @@ public class HexGrid : MonoBehaviour
         cell.transform.localPosition = position;
         cell.Elevation = 0;
         cell.Coordinates = HexCoordinates.FromOffsetCoordinates(x, z);
+        cell.ShaderData = cellShaderData;
+        cell.Index = i;
 
         #region 设置邻里关系
         // 第二列开始往西边连接
@@ -547,6 +553,7 @@ public class HexGrid : MonoBehaviour
     public void AddUnit(HexUnit unit, HexCell location, float orientation)
     {
         units.Add(unit);
+        unit.Grid = this;
         unit.transform.SetParent(transform, false);
         unit.Location = location;
         unit.Orientation = orientation;
@@ -560,6 +567,97 @@ public class HexGrid : MonoBehaviour
     {
         units.Remove(unit);
         unit.Die();
+    }
+    #endregion
+
+    #region 单位视野
+    /// <summary>
+    /// 找到一个格子附近的可视格子
+    /// </summary>
+    /// <param name="fromCell"></param>
+    /// <param name="range">视野</param>
+    /// <returns></returns>
+    List<HexCell> GetVisibleCells(HexCell fromCell, int range)
+    {
+        List<HexCell> visibleCells = ListPool<HexCell>.Get();
+
+        searchFrontierPhase += 2;
+        if (searchFrontier == null)
+        {
+            searchFrontier = new HexCellPriorityQueue();
+        }
+        else {
+            searchFrontier.Clear();
+        }
+
+        fromCell.SearchPhase = searchFrontierPhase;
+        fromCell.Distance = 0;
+        searchFrontier.Enqueue(fromCell);
+        while (searchFrontier.Count > 0)
+        {
+            HexCell current = searchFrontier.Dequeue();
+            current.SearchPhase += 1;
+            visibleCells.Add(current);
+            for (HexDirection d = HexDirection.NE; d <= HexDirection.NW; d++)
+            {
+                HexCell neighbor = current.GetNeighbor(d);
+                if (neighbor == null || neighbor.SearchPhase > searchFrontierPhase)
+                {
+                    continue;
+                }
+
+                int distance = current.Distance + 1;    
+                if (distance > range)
+                {
+                    continue;
+                }
+
+                if (neighbor.SearchPhase < searchFrontierPhase)
+                {
+                    neighbor.SearchPhase = searchFrontierPhase;
+                    neighbor.Distance = distance;
+                    neighbor.SearchHeuristic = 0;
+                    searchFrontier.Enqueue(neighbor);
+                }
+                else if (distance < neighbor.Distance)
+                {
+                    int oldPriority = neighbor.SearchPriority;
+                    neighbor.Distance = distance;
+                    searchFrontier.Change(neighbor, oldPriority);
+                }
+            }
+        }
+        return visibleCells;
+    }
+
+    /// <summary>
+    /// 增加格子可见性
+    /// </summary>
+    /// <param name="fromCell"></param>
+    /// <param name="range"></param>
+    public void IncreaseVisibility(HexCell fromCell, int range)
+    {
+        List<HexCell> cells = GetVisibleCells(fromCell, range);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            cells[i].IncreaseVisibility();
+        }
+        ListPool<HexCell>.Add(cells);
+    }
+
+    /// <summary>
+    /// 减少格子可见性
+    /// </summary>
+    /// <param name="fromCell"></param>
+    /// <param name="range"></param>
+    public void DecreaseVisibility(HexCell fromCell, int range)
+    {
+        List<HexCell> cells = GetVisibleCells(fromCell, range);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            cells[i].DecreaseVisibility();
+        }
+        ListPool<HexCell>.Add(cells);
     }
     #endregion
 }

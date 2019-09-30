@@ -1632,6 +1632,16 @@ PrefabInstance:
       propertyPath: grid
       value: 
       objectReference: {fileID: 689367569}
+    - target: {fileID: 4553599515014139466, guid: cdd41740f7cb1f443927e922322f0eda,
+        type: 3}
+      propertyPath: stickMinZoom
+      value: -450
+      objectReference: {fileID: 0}
+    - target: {fileID: 4553599515014139466, guid: cdd41740f7cb1f443927e922322f0eda,
+        type: 3}
+      propertyPath: stickMaxZoom
+      value: -145
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cdd41740f7cb1f443927e922322f0eda, type: 3}
 --- !u!114 &4817407491581050052 stripped

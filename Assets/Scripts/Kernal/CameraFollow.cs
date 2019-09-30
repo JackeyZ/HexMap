@@ -41,7 +41,7 @@ public class CameraFollow : MonoBehaviour
     public CameraStatus cameraStatus = CameraStatus.Normal;         // 摄像机状态
 
     private Camera cameraComponent = null;
-    private float lastMousePosY = 0;
+    //private float lastMousePosY = 0;
 
     void Awake()
     {

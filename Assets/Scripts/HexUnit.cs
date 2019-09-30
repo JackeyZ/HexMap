@@ -13,11 +13,14 @@ public class HexUnit : MonoBehaviour
 
     List<HexCell> pathToTravel;                                                 // 移动路径
 
+    // 常量
     const float travelSpeed = 4f;                                               // 移动速度
-
     const float rotationSpeed = 180f;                                           // 旋转速度
+    const int visionRange = 3;                                                  // 视野范围
 
     HexCell location;                                                           // 位于哪一个六边形上
+    HexCell currentTravelLocation;                                              // 移动协程中位于哪个六边形上
+    
     /// <summary>
     /// 移动单位位于哪一个六边形上
     /// </summary>
@@ -31,11 +34,13 @@ public class HexUnit : MonoBehaviour
         {
             if (location)
             {
+                Grid.DecreaseVisibility(value, visionRange);
                 // 先清除旧格子对自己的引用
                 location.Unit = null;
             }
             location = value;
             transform.localPosition = value.Position;
+            Grid.IncreaseVisibility(value, visionRange);
             value.Unit = this;
         }
     }
@@ -57,11 +62,20 @@ public class HexUnit : MonoBehaviour
         }
     }
 
+    public HexGrid Grid { get; set; }                                           // 地图引用
+
+
     void OnEnable()
     {
         if (location)
         {
-            //transform.localPosition = location.Position;
+            transform.localPosition = location.Position;
+            if (currentTravelLocation)
+            {
+                Grid.IncreaseVisibility(location, visionRange);
+                Grid.DecreaseVisibility(currentTravelLocation, visionRange);
+                currentTravelLocation = null;
+            }
         }
     }
 
@@ -75,6 +89,10 @@ public class HexUnit : MonoBehaviour
 
     public void Die()
     {
+        if (location)
+        {
+            Grid.DecreaseVisibility(location, visionRange);
+        }
         location.Unit = null;
         Destroy(gameObject);
     }
@@ -96,7 +114,7 @@ public class HexUnit : MonoBehaviour
     /// <param name="path"></param>
     public void Travel(List<HexCell> path)
     {
-        Location = path[path.Count - 1];
+        location = path[path.Count - 1];                        // 不用Location，避免属性更变刷新可见格子
         pathToTravel = path;
         StopAllCoroutines();
         StartCoroutine(TravelPath());
@@ -108,14 +126,19 @@ public class HexUnit : MonoBehaviour
     IEnumerator TravelPath()
     {
         Vector3 a, b, c = pathToTravel[0].Position;
-        transform.localPosition = c;                            // Travel()方法里设置Location的时候把单位设置到了目的地，在这里初始化单位位置
+        //transform.localPosition = c;                                          // Travel()方法里设置Location的时候把单位设置到了目的地，在这里初始化单位位置
         yield return LookAt(pathToTravel[1].Position);
+
+        Grid.DecreaseVisibility(currentTravelLocation ? currentTravelLocation : pathToTravel[0], visionRange);  // 避免发生传送的时候，旧的可见区域没有去掉可见度
+
         float t = Time.deltaTime * travelSpeed;
         for (int i = 1; i < pathToTravel.Count; i++)
         {
+            currentTravelLocation = pathToTravel[i];
             a = c;
             b = pathToTravel[i - 1].Position;
             c = (b + pathToTravel[i].Position) * 0.5f;
+            Grid.IncreaseVisibility(pathToTravel[i], visionRange);              // 增加下一格周边可见度
             for (; t < 1f; t += Time.deltaTime * travelSpeed)
             {
                 transform.localPosition = Bezier.GetPoint(a, b, c, t);
@@ -124,11 +147,15 @@ public class HexUnit : MonoBehaviour
                 transform.localRotation = Quaternion.LookRotation(dir);
                 yield return null;
             }
+            Grid.DecreaseVisibility(pathToTravel[i], visionRange);              // 减少格子周边可见度
             t -= 1;
         }
+        currentTravelLocation = null;
+
         a = c;
-        b = pathToTravel[pathToTravel.Count - 1].Position;
+        b = location.Position;
         c = b;
+        Grid.IncreaseVisibility(location, visionRange);                         // 增加目的地格子周边可见度
         for (; t < 1f; t += Time.deltaTime * travelSpeed)
         {
             transform.localPosition = Bezier.GetPoint(a, b, c, t);

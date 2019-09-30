@@ -34,7 +34,7 @@ public class HexMapEditor : MonoBehaviour
 
     bool applySpecialIndex = false; // 是否开启特殊特征物体下标编辑
 
-    bool editMode = true;          // 是否开启编辑模式
+    //bool editMode = true;          // 是否开启编辑模式
 
     int brushSize = 0;              // 画刷大小
 

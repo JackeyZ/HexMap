@@ -9,21 +9,22 @@ using System;
 public class HexMesh : MonoBehaviour
 {
     public bool useCollider;                                    // 是否拥有碰撞盒（河流没有碰撞盒，地形有）
-    public bool useColors;                                      // 是否需要改变颜色
+    //public bool useColors;                                      // 是否需要改变颜色
     public bool useUVCoordinates;                               // 是否需要UV坐标
     public bool useUV2Coordinates;                              // 是否需要第二个UV坐标
-    public bool useTerrainTypes;                                // 是否需要地形类型
+    //public bool useTerrainTypes;                                // 是否需要地形类型
+    public bool useCellData;                                    // 是否需要单元数据纹理
 
     Mesh hexMesh;
 
     [NonSerialized]
-    List<Vector3> vertices;                                     // 网格顶点
+    List<Vector3> vertices;                                    // 网格顶点
 
     [NonSerialized]
-    List<Vector3> terrainTypes;                                 // 用于记录每个顶点的地形类型
+    List<Vector3> cellIndices;                                 // 用于记录每个顶点的地形类型
 
     [NonSerialized]
-    List<Color> colors;                                         // 顶点颜色列表，在shader中读取
+    List<Color> cellWeights;                                   // 每个顶点的地形权重
 
     [NonSerialized]
     List<Vector2> uvs;                                          // UV坐标
@@ -51,10 +52,6 @@ public class HexMesh : MonoBehaviour
     {
         hexMesh.Clear();
         vertices = ListPool<Vector3>.Get();
-        if (useColors)
-        {
-            colors = ListPool<Color>.Get();
-        }
         if (useUVCoordinates)
         {
             uvs = ListPool<Vector2>.Get();
@@ -63,9 +60,10 @@ public class HexMesh : MonoBehaviour
         {
             uv2s = ListPool<Vector2>.Get();
         }
-        if (useTerrainTypes)
+        if (useCellData)
         {
-            terrainTypes = ListPool<Vector3>.Get();
+            cellWeights = ListPool<Color>.Get();
+            cellIndices = ListPool<Vector3>.Get();
         }
         triangles = ListPool<int>.Get();
     }
@@ -75,18 +73,13 @@ public class HexMesh : MonoBehaviour
     /// </summary>
     public void Apply()
     {
-        if (terrainTypes != null && terrainTypes.Count != vertices.Count)
+        if (cellIndices != null && cellIndices.Count != vertices.Count)
         {
-            Debug.Log(vertices.Count + ":" + terrainTypes.Count);
+            Debug.Log(vertices.Count + ":" + cellIndices.Count);
         }
         hexMesh.SetVertices(vertices);
         ListPool<Vector3>.Add(vertices);        // 归还给列表池
         
-        if (useColors)
-        {
-            hexMesh.SetColors(colors);
-            ListPool<Color>.Add(colors);        // 归还给列表池
-        }
         if (useUVCoordinates)
         {
             hexMesh.SetUVs(0, uvs);
@@ -97,10 +90,12 @@ public class HexMesh : MonoBehaviour
             hexMesh.SetUVs(1, uv2s);
             ListPool<Vector2>.Add(uv2s);        // 归还给列表池
         }
-        if (useTerrainTypes)
+        if (useCellData)
         {
-            hexMesh.SetUVs(2, terrainTypes);    // 归还给列表池
-            ListPool<Vector3>.Add(terrainTypes);
+            hexMesh.SetColors(cellWeights);
+            ListPool<Color>.Add(cellWeights);
+            hexMesh.SetUVs(2, cellIndices);     // 存储在texcoord2中
+            ListPool<Vector3>.Add(cellIndices);
         }
         hexMesh.SetTriangles(triangles, 0);
         ListPool<int>.Add(triangles);           // 归还给列表池
@@ -141,30 +136,6 @@ public class HexMesh : MonoBehaviour
         triangles.Add(vertexIndex);
         triangles.Add(vertexIndex + 1);
         triangles.Add(vertexIndex + 2);
-    }
-
-    /// <summary>
-    /// 增加三角面三个顶点的颜色
-    /// </summary>
-    /// <param name="color"></param>
-    public void AddTriangleColor(Color color)
-    {
-        colors.Add(color);
-        colors.Add(color);
-        colors.Add(color);
-    }
-
-    /// <summary>
-    /// 增加三角面三个顶点的颜色
-    /// </summary>
-    /// <param name="color1"></param>
-    /// <param name="color2"></param>
-    /// <param name="color3"></param>
-    public void AddTriangleColor(Color color1, Color color2, Color color3)
-    {
-        colors.Add(color1);
-        colors.Add(color2);
-        colors.Add(color3);
     }
 
     /// <summary>
@@ -217,48 +188,6 @@ public class HexMesh : MonoBehaviour
         triangles.Add(vertexIndex + 2);
         triangles.Add(vertexIndex + 3);
     }
-
-    /// <summary>
-    /// 给长方形顶点添加颜色
-    /// </summary>
-    /// <param name="c1">内侧顶点颜色</param>
-    /// <param name="c2">外侧顶点颜色</param>
-    public void AddQuadColor(Color c1, Color c2)
-    {
-        colors.Add(c1);
-        colors.Add(c1);
-        colors.Add(c2);
-        colors.Add(c2);
-    }
-
-    /// <summary>
-    /// 给长方形顶点添加颜色
-    /// </summary>
-    /// <param name="c1">内侧顶点颜色</param>
-    /// <param name="c2">外侧顶点颜色</param>
-    public void AddQuadColor(Color c)
-    {
-        colors.Add(c);
-        colors.Add(c);
-        colors.Add(c);
-        colors.Add(c);
-    }
-
-    /// <summary>
-    /// 给长方形顶点添加颜色
-    /// </summary>
-    /// <param name="c1"></param>
-    /// <param name="c2"></param>
-    /// <param name="c3"></param>
-    /// <param name="c4"></param>
-    public void AddQuadColor(Color c1, Color c2, Color c3, Color c4)
-    {
-        colors.Add(c1);
-        colors.Add(c2);
-        colors.Add(c3);
-        colors.Add(c4);
-    }
-
 
     #region UV相关
     /// <summary>
@@ -350,28 +279,73 @@ public class HexMesh : MonoBehaviour
     }
     #endregion
 
-    #region 增加顶点地形类型
+    #region 给三角面或四边面的顶点增加格子数据
     /// <summary>
-    /// 给三角形三个顶点添加地形类型
+    /// 增加三角面三个顶点的数据。地形、地形占比等
     /// </summary>
-    /// <param name="types"></param>
-    public void AddTriangleTerrainTypes(Vector3 types)
+    /// <param name="indices">顶点附近的三个格子索引（x, y, z）</param>
+    /// <param name="weights1">第一个顶点的三种地形占比（r, g, b）</param>
+    /// <param name="weights2">第二个顶点的三种地形占比（r, g, b）</param>
+    /// <param name="weights3">第三个顶点的三种地形占比（r, g, b）</param>
+    public void AddTriangleCellData(Vector3 indices, Color weights1, Color weights2, Color weights3)
     {
-        terrainTypes.Add(types);
-        terrainTypes.Add(types);
-        terrainTypes.Add(types);
+        cellIndices.Add(indices);       // 地形引索（x, y, z分别是周边三个格子的索引）
+        cellIndices.Add(indices);
+        cellIndices.Add(indices);
+        cellWeights.Add(weights1);      // 顶点地形占比（r,g,b分别对应三个格子的占比）
+        cellWeights.Add(weights2);
+        cellWeights.Add(weights3);
     }
 
     /// <summary>
-    /// 给四边形四个顶点添加地形类型
+    /// 增加三角面三个顶点的数据。附近格子、格子占比等
     /// </summary>
-    /// <param name="types"></param>
-    public void AddQuadTerrainTypes(Vector3 types)
+    /// <param name="indices"></param>
+    /// <param name="weights"></param>
+    public void AddTriangleCellData(Vector3 indices, Color weights)
     {
-        terrainTypes.Add(types);
-        terrainTypes.Add(types);
-        terrainTypes.Add(types);
-        terrainTypes.Add(types);
+        AddTriangleCellData(indices, weights, weights, weights);
+    }
+
+    /// <summary>
+    /// 增加四边面四个顶点的数据。地形、地形占比等
+    /// </summary>
+    /// <param name="indices">x,y,z储存顶点附近三个六边形格子的索引</param>
+    /// <param name="weights1">第一个顶点附近格子占比，x,y,z分别对应附近三个格子的影响占比</param>
+    /// <param name="weights2">第二个顶点附近格子占比，x,y,z分别对应附近三个格子的影响占比</param>
+    /// <param name="weights3">第三个顶点附近格子占比，x,y,z分别对应附近三个格子的影响占比</param>
+    /// <param name="weights4">第四个顶点附近格子占比，x,y,z分别对应附近三个格子的影响占比</param>
+    public void AddQuadCellData(Vector3 indices, Color weights1, Color weights2, Color weights3, Color weights4)
+    {
+        cellIndices.Add(indices);
+        cellIndices.Add(indices);
+        cellIndices.Add(indices);
+        cellIndices.Add(indices);
+        cellWeights.Add(weights1);
+        cellWeights.Add(weights2);
+        cellWeights.Add(weights3);
+        cellWeights.Add(weights4);
+    }
+
+    /// <summary>
+    /// 增加四边面四个顶点的数据。地形、地形占比等
+    /// </summary>
+    /// <param name="indices"></param>
+    /// <param name="weights1"></param>
+    /// <param name="weights2"></param>
+    public void AddQuadCellData(Vector3 indices, Color weights1, Color weights2)
+    {
+        AddQuadCellData(indices, weights1, weights1, weights2, weights2);
+    }
+
+    /// <summary>
+    /// 增加四边面四个顶点的数据。地形、地形占比等
+    /// </summary>
+    /// <param name="indices"></param>
+    /// <param name="weights"></param>
+    public void AddQuadCellData(Vector3 indices, Color weights)
+    {
+        AddQuadCellData(indices, weights, weights, weights, weights);
     }
     #endregion
 }

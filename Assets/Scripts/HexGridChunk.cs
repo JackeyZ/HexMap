@@ -23,10 +23,10 @@ public class HexGridChunk : MonoBehaviour
     HexMesh hexMesh;
     Canvas gridCanvas;
 
-    // 用作splat贴图
-    static Color color1 = new Color(1f, 0f, 0f);
-    static Color color2 = new Color(0f, 1f, 0f);
-    static Color color3 = new Color(0f, 0f, 1f);
+    // 地形权重，用作splat贴图
+    static Color weights1 = new Color(1f, 0f, 0f);        // 表示顶点第一个地形占100%
+    static Color weights2 = new Color(0f, 1f, 0f);        // 表示顶点第二个地形占100%
+    static Color weights3 = new Color(0f, 0f, 1f);        // 表示顶点第三个地形占100%
 
     void Awake()
     {
@@ -170,7 +170,7 @@ public class HexGridChunk : MonoBehaviour
     }
 
     /// <summary>
-    /// 三角面化桥、角落以及桥中间的河水
+    /// 三角化桥、角落以及桥中间的河水
     /// </summary>
     /// <param name="direction">生成方向</param>
     /// <param name="cell">自身六边形</param>
@@ -185,6 +185,11 @@ public class HexGridChunk : MonoBehaviour
         {
             return;
         }
+
+        // 临近六边形索引
+        Vector3 indices;
+        indices.x = indices.z = cell.Index;
+        indices.y = neighbor.Index;
 
         Vector3 bridge = HexMetrics.GetBridge(direction);
         Vector3 e2_v1 = e1.v1 + bridge;
@@ -210,7 +215,7 @@ public class HexGridChunk : MonoBehaviour
         else
         {
             // 生成斜面
-            TriangulateEdgeStrip(e1, color1, cell.TerrainTypeIndex, e2, color2, neighbor.TerrainTypeIndex, hasRoad);
+            TriangulateEdgeStrip(e1, weights1, cell.Index, e2, weights2, neighbor.Index, hasRoad);
         }
         ///// 桥混合区end
 
@@ -263,20 +268,21 @@ public class HexGridChunk : MonoBehaviour
                     TriangulateRiverQuad(e1.v2, e1.v4, e2.v2, e2.v4,
                         cell.RiverSurfaceY, neighbor.RiverSurfaceY,
                         0.8f,
-                        cell.HasIncomingRiver && cell.IncomingRiver == direction
+                        cell.HasIncomingRiver && cell.IncomingRiver == direction,
+                        indices
                     );
                 }
                 else
                 {
                     // 三角化瀑布
-                    TriangulateWaterfallInWater(e1.v2, e1.v4, e2.v2, e2.v4, cell.RiverSurfaceY, neighbor.RiverSurfaceY, neighbor.WaterSurfaceY);
+                    TriangulateWaterfallInWater(e1.v2, e1.v4, e2.v2, e2.v4, cell.RiverSurfaceY, neighbor.RiverSurfaceY, neighbor.WaterSurfaceY, indices);
                 }
             }
             // 如果自己在水下，邻居是陆地
             else if (!neighbor.IsUnderwater && neighbor.Elevation > cell.WaterLevel)
             {
                 // 三角化瀑布
-                TriangulateWaterfallInWater(e2.v4, e2.v2, e1.v4, e1.v2, neighbor.RiverSurfaceY, cell.RiverSurfaceY, cell.WaterSurfaceY);
+                TriangulateWaterfallInWater(e2.v4, e2.v2, e1.v4, e1.v2, neighbor.RiverSurfaceY, cell.RiverSurfaceY, cell.WaterSurfaceY, indices);
             }
         }
     }
@@ -292,18 +298,18 @@ public class HexGridChunk : MonoBehaviour
     {
         EdgeVertices lastEdgeVertices = e1;
         EdgeVertices curEdgeVertices;
-        Color lastColor = color1;
-        Color curColor;
+        Color lastWeights = weights1;
+        Color curWeights;
         for (int step = 1; step <= HexMetrics.terraceSteps; step++)
         {
             curEdgeVertices = HexMetrics.TerraceLerp(e1, e2, step);
             curEdgeVertices = HexMetrics.TerraceLerp(e1, e2, step);
-            curColor = HexMetrics.TerraceLerp(color1, color2, step);
+            curWeights = HexMetrics.TerraceLerp(weights1, weights2, step);
 
-            TriangulateEdgeStrip(lastEdgeVertices, lastColor, beginCell.TerrainTypeIndex, curEdgeVertices, curColor, endCell.TerrainTypeIndex, hasRoad);
+            TriangulateEdgeStrip(lastEdgeVertices, lastWeights, beginCell.Index, curEdgeVertices, curWeights, endCell.Index, hasRoad);
 
             lastEdgeVertices = curEdgeVertices;
-            lastColor = curColor;
+            lastWeights = curWeights;
         }
     }
 
@@ -368,18 +374,15 @@ public class HexGridChunk : MonoBehaviour
         else {
             // 三个六边形之间的桥都是陡坡的情况
 
-            // 顶点与三角引索
+            // 顶点与三角索引
             terrain.AddTriangle(bottom, left, right);
 
-            // splat颜色
-            terrain.AddTriangleColor(color1, color2, color3);
-
-            // 顶点地形类型
-            Vector3 types;
-            types.x = bottomCell.TerrainTypeIndex;
-            types.y = leftCell.TerrainTypeIndex;
-            types.z = rightCell.TerrainTypeIndex;
-            terrain.AddTriangleTerrainTypes(types);
+            // 顶点附近三个六边形格子的索引和各格子的占比（splat颜色）
+            Vector3 indices;
+            indices.x = bottomCell.Index;
+            indices.y = leftCell.Index;
+            indices.z = rightCell.Index;
+            terrain.AddTriangleCellData(indices, weights1, weights2, weights3);
         }
 
         // 给三色混合区添加围墙
@@ -399,18 +402,17 @@ public class HexGridChunk : MonoBehaviour
     {
         Vector3 v3 = HexMetrics.TerraceLerp(begin, left, 1);
         Vector3 v4 = HexMetrics.TerraceLerp(begin, right, 1);
-        Color c3 = HexMetrics.TerraceLerp(color1, color2, 1);
-        Color c4 = HexMetrics.TerraceLerp(color1, color3, 1);
+        Color c3 = HexMetrics.TerraceLerp(weights1, weights2, 1);
+        Color c4 = HexMetrics.TerraceLerp(weights1, weights3, 1);
 
-        Vector3 types;
-        types.x = beginCell.TerrainTypeIndex;
-        types.y = leftCell.TerrainTypeIndex;
-        types.z = rightCell.TerrainTypeIndex;
+        Vector3 indices;
+        indices.x = beginCell.Index;
+        indices.y = leftCell.Index;
+        indices.z = rightCell.Index;
 
         // 先生成第一个三角形
-        terrain.AddTriangle(begin, v3, v4);                     // 顶点和三角引索
-        terrain.AddTriangleColor(color1, c3, c4);               // splat颜色
-        terrain.AddTriangleTerrainTypes(types);                 // 地形类型
+        terrain.AddTriangle(begin, v3, v4);                     // 顶点和三角索引
+        terrain.AddTriangleCellData(indices, weights1, c3, c4);     // 地形类型和splat颜色
 
         // 后面的阶梯生成四边形
         for (int i = 2; i <= HexMetrics.terraceSteps; i++)
@@ -422,11 +424,10 @@ public class HexGridChunk : MonoBehaviour
 
             v3 = HexMetrics.TerraceLerp(begin, left, i);
             v4 = HexMetrics.TerraceLerp(begin, right, i);
-            c3 = HexMetrics.TerraceLerp(color1, color2, i);
-            c4 = HexMetrics.TerraceLerp(color1, color3, i);
+            c3 = HexMetrics.TerraceLerp(weights1, weights2, i);
+            c4 = HexMetrics.TerraceLerp(weights1, weights3, i);
             terrain.AddQuad(v1, v2, v3, v4);
-            terrain.AddQuadColor(c1, c2, c3, c4);
-            terrain.AddQuadTerrainTypes(types);
+            terrain.AddQuadCellData(indices, c1, c2, c3, c4);
         }
     }
 
@@ -444,26 +445,25 @@ public class HexGridChunk : MonoBehaviour
         float b = (float)(leftCell.Elevation - beginCell.Elevation) / (rightCell.Elevation - beginCell.Elevation); // 高度差占比
         // 得到右侧边与左侧六边形相交的点
         Vector3 boundary = Vector3.Lerp(HexMetrics.Perturb(begin), HexMetrics.Perturb(right), b);
-        Color boundaryColor = Color.Lerp(color1, color3, b);
+        Color boundaryColor = Color.Lerp(weights1, weights3, b);
 
         // 角落三个相邻六边形的地形类型
-        Vector3 types;
-        types.x = beginCell.TerrainTypeIndex;
-        types.y = leftCell.TerrainTypeIndex;
-        types.z = rightCell.TerrainTypeIndex;
+        Vector3 indices;
+        indices.x = beginCell.Index;
+        indices.y = leftCell.Index;
+        indices.z = rightCell.Index;
 
-        TriangulateBoundaryTriangle(begin, color1, left, color2, boundary, boundaryColor, types);
+        TriangulateBoundaryTriangle(begin, weights1, left, weights2, boundary, boundaryColor, indices);
 
         // 如果左边六边形与右边六边形之间是阶梯
         if (leftCell.GetEdgeType(rightCell) == HexEdgeType.Slope)
         {
-            TriangulateBoundaryTriangle(left, color2, right, color3, boundary, boundaryColor, types);
+            TriangulateBoundaryTriangle(left, weights2, right, weights3, boundary, boundaryColor, indices);
         }
         else
         {
             terrain.AddTriangleUnperturbed(HexMetrics.Perturb(left), HexMetrics.Perturb(right), boundary);
-            terrain.AddTriangleColor(color2, color3, boundaryColor);
-            terrain.AddTriangleTerrainTypes(types);
+            terrain.AddTriangleCellData(indices, weights2, weights3, boundaryColor);
         }
     }
 
@@ -480,27 +480,26 @@ public class HexGridChunk : MonoBehaviour
     {
         float b = (float)(rightCell.Elevation - beginCell.Elevation) / (leftCell.Elevation - beginCell.Elevation);
         Vector3 boundary = Vector3.Lerp(HexMetrics.Perturb(begin), HexMetrics.Perturb(left), b);
-        Color boundaryColor = Color.Lerp(color1, color2, b);
+        Color boundaryColor = Color.Lerp(weights1, weights2, b);
 
-        // 角落三个相邻六边形的地形类型
-        Vector3 types;
-        types.x = beginCell.TerrainTypeIndex;
-        types.y = leftCell.TerrainTypeIndex;
-        types.z = rightCell.TerrainTypeIndex;
+        // 角落三个相邻六边形的下标索引
+        Vector3 indices;
+        indices.x = beginCell.Index;
+        indices.y = leftCell.Index;
+        indices.z = rightCell.Index;
 
         // 下方三角
-        TriangulateBoundaryTriangle(right, color3, begin, color1, boundary, boundaryColor, types);
+        TriangulateBoundaryTriangle(right, weights3, begin, weights1, boundary, boundaryColor, indices);
 
         // 上方三角，先判断上方的边是否是阶梯
         if (leftCell.GetEdgeType(rightCell) == HexEdgeType.Slope)
         {
-            TriangulateBoundaryTriangle(left, color2, right, color3, boundary, boundaryColor, types);
+            TriangulateBoundaryTriangle(left, weights2, right, weights3, boundary, boundaryColor, indices);
         }
         else
         {
             terrain.AddTriangleUnperturbed(HexMetrics.Perturb(left), HexMetrics.Perturb(right), boundary);
-            terrain.AddTriangleColor(color2, color3, boundaryColor);
-            terrain.AddTriangleTerrainTypes(types);
+            terrain.AddTriangleCellData(indices, weights2, weights3, boundaryColor);
         }
     }
 
@@ -513,21 +512,20 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="leftCell"></param>
     /// <param name="boundary"></param>
     /// <param name="boundaryColor"></param>
-    void TriangulateBoundaryTriangle(Vector3 begin, Color beginColor, Vector3 left, Color leftColor, Vector3 boundary, Color boundaryColor, Vector3 types)
+    void TriangulateBoundaryTriangle(Vector3 begin, Color beginWeights, Vector3 left, Color leftWeights, Vector3 boundary, Color boundaryColor, Vector3 indices)
     {
         Vector3 v1 = begin;
         Vector3 v2;
-        Color c1 = beginColor;
-        Color c2;
+        Color w1 = beginWeights;
+        Color w2;
         for (int i = 1; i <= HexMetrics.terraceSteps; i++)
         {
             v2 = HexMetrics.TerraceLerp(begin, left, i);
-            c2 = HexMetrics.TerraceLerp(beginColor, leftColor, i);
+            w2 = HexMetrics.TerraceLerp(beginWeights, leftWeights, i);
             terrain.AddTriangleUnperturbed(HexMetrics.Perturb(v1), HexMetrics.Perturb(v2), boundary);
-            terrain.AddTriangleColor(c1, c2, boundaryColor);
-            terrain.AddTriangleTerrainTypes(types);
+            terrain.AddTriangleCellData(indices, w1, w2, boundaryColor);
             v1 = v2;
-            c1 = c2;
+            w1 = w2;
         }
     }
 
@@ -537,63 +535,52 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="center"></param>
     /// <param name="edge"></param>
     /// <param name="color"></param>
-    void TriangulateEdgeFan(Vector3 center, EdgeVertices edge, float type)
+    void TriangulateEdgeFan(Vector3 center, EdgeVertices edge, float index)
     {
-        // 增加顶点以及对应的三角面引索
+        // 增加顶点以及对应的三角面索引
         terrain.AddTriangle(center, edge.v1, edge.v2);
         terrain.AddTriangle(center, edge.v2, edge.v3);
         terrain.AddTriangle(center, edge.v3, edge.v4);
         terrain.AddTriangle(center, edge.v4, edge.v5);
 
+        // 添加顶点附近六边形格子的下标索引
+        Vector3 indices;
+        indices.x = indices.y = indices.z = index;
         // 添加顶点颜色用作splat贴图
-        terrain.AddTriangleColor(color1);
-        terrain.AddTriangleColor(color1);
-        terrain.AddTriangleColor(color1);
-        terrain.AddTriangleColor(color1);
-
-        // 添加顶点地形类型
-        Vector3 types;
-        types.x = types.y = types.z = type;
-        terrain.AddTriangleTerrainTypes(types);
-        terrain.AddTriangleTerrainTypes(types);
-        terrain.AddTriangleTerrainTypes(types);
-        terrain.AddTriangleTerrainTypes(types);
+        terrain.AddTriangleCellData(indices, weights1);
+        terrain.AddTriangleCellData(indices, weights1);
+        terrain.AddTriangleCellData(indices, weights1);
+        terrain.AddTriangleCellData(indices, weights1);
     }
 
     /// <summary>
     /// 三角化长有五个顶点的桥（长方形）
     /// </summary>
     /// <param name="e1"></param>
-    /// <param name="c1"></param>
+    /// <param name="w1"></param>
     /// <param name="e2"></param>
-    /// <param name="c2"></param>
-    void TriangulateEdgeStrip(EdgeVertices e1, Color c1, float type1, EdgeVertices e2, Color c2, float type2, bool hasRoad = false)
+    /// <param name="w2"></param>
+    void TriangulateEdgeStrip(EdgeVertices e1, Color w1, float index1, EdgeVertices e2, Color w2, float index2, bool hasRoad = false)
     {
-        // 添加顶点以及对应的三角面引索
+        // 添加顶点以及对应的三角面索引
         terrain.AddQuad(e1.v1, e1.v2, e2.v1, e2.v2);
         terrain.AddQuad(e1.v2, e1.v3, e2.v2, e2.v3);
         terrain.AddQuad(e1.v3, e1.v4, e2.v3, e2.v4);
         terrain.AddQuad(e1.v4, e1.v5, e2.v4, e2.v5);
 
-        // 给顶点添加颜色，用于splat贴图
-        terrain.AddQuadColor(c1, c2);
-        terrain.AddQuadColor(c1, c2);
-        terrain.AddQuadColor(c1, c2);
-        terrain.AddQuadColor(c1, c2);
-
-        // 顶点地形类型
-        Vector3 types;
-        types.x = types.z = type1;
-        types.y = type2;
-        terrain.AddQuadTerrainTypes(types);
-        terrain.AddQuadTerrainTypes(types);
-        terrain.AddQuadTerrainTypes(types);
-        terrain.AddQuadTerrainTypes(types);
+        // 给顶点添加附近六边形格子的索引和对应占比，可用于splat贴图
+        Vector3 indices;
+        indices.x = indices.z = index1;
+        indices.y = index2;
+        terrain.AddQuadCellData(indices, w1, w2);
+        terrain.AddQuadCellData(indices, w1, w2);
+        terrain.AddQuadCellData(indices, w1, w2);
+        terrain.AddQuadCellData(indices, w1, w2);
 
         // 判断该桥是否有道路
         if (hasRoad)
         {
-            TriangulateRoadSegment(e1.v2, e1.v3, e1.v4, e2.v2, e2.v3, e2.v4);
+            TriangulateRoadSegment(e1.v2, e1.v3, e1.v4, e2.v2, e2.v3, e2.v4, w1, w2, indices);
         }
     }
 
@@ -616,16 +603,18 @@ public class HexGridChunk : MonoBehaviour
         m.v3.y = e.v3.y;
 
         // 三角化中线到外部边缘之间的长方形
-        TriangulateEdgeStrip(m, color1, cell.TerrainTypeIndex, e, color1, cell.TerrainTypeIndex);
+        TriangulateEdgeStrip(m, weights1, cell.Index, e, weights1, cell.Index);
 
         // 三角化六边形中心店到中线的扇形
-        TriangulateEdgeFan(center, m, cell.TerrainTypeIndex);
+        TriangulateEdgeFan(center, m, cell.Index);
 
         // 三角化河水
         if (!cell.IsUnderwater)                    // 检查是否在陆地
         {
             bool reversed = cell.HasIncomingRiver; // 流入河水需要翻转UV
-            TriangulateRiverQuad(m.v2, m.v4, e.v2, e.v4, cell.RiverSurfaceY, 0.6f, reversed);
+            Vector3 indices;
+            indices.x = indices.y = indices.z = cell.Index;
+            TriangulateRiverQuad(m.v2, m.v4, e.v2, e.v4, cell.RiverSurfaceY, 0.6f, reversed, indices);
             center.y = m.v2.y = m.v4.y = cell.RiverSurfaceY;
             rivers.AddTriangle(center, m.v2, m.v4);
             if (reversed)
@@ -636,6 +625,7 @@ public class HexGridChunk : MonoBehaviour
             {
                 rivers.AddTriangleUV(new Vector2(0.5f, 0.4f), new Vector2(0f, 0.6f), new Vector2(1f, 0.6f));
             }
+            rivers.AddTriangleCellData(indices, weights1);
         }
     }
 
@@ -695,7 +685,7 @@ public class HexGridChunk : MonoBehaviour
         m.v3.y = center.y = e.v3.y;                      // 调整中线的中心顶点的高度为河床高度
 
         // 三角化中线到外部边缘之间的长方形
-        TriangulateEdgeStrip(m, color1, cell.TerrainTypeIndex, e, color1, cell.TerrainTypeIndex);
+        TriangulateEdgeStrip(m, weights1, cell.Index, e, weights1, cell.Index);
 
         // 三角化六边形中心线到梯形中线的梯形（两个三角形，两个长方形）
         terrain.AddTriangle(centerL, m.v1, m.v2);
@@ -703,26 +693,20 @@ public class HexGridChunk : MonoBehaviour
         terrain.AddQuad(center, centerR, m.v3, m.v4);
         terrain.AddTriangle(centerR, m.v4, m.v5);
 
-        // splat贴图颜色
-        terrain.AddTriangleColor(color1);
-        terrain.AddQuadColor(color1);
-        terrain.AddQuadColor(color1);
-        terrain.AddTriangleColor(color1);
-
-        // 地形类型
-        Vector3 types;
-        types.x = types.y = types.z = cell.TerrainTypeIndex;
-        terrain.AddTriangleTerrainTypes(types);
-        terrain.AddQuadTerrainTypes(types);
-        terrain.AddQuadTerrainTypes(types);
-        terrain.AddTriangleTerrainTypes(types);
+        // 顶点附近三个六边形格子的索引和splat贴图颜色
+        Vector3 indices;
+        indices.x = indices.y = indices.z = cell.Index;
+        terrain.AddTriangleCellData(indices, weights1);
+        terrain.AddQuadCellData(indices, weights1);
+        terrain.AddQuadCellData(indices, weights1);
+        terrain.AddTriangleCellData(indices, weights1);
 
         // 三角化河水
         if (!cell.IsUnderwater)                                 // 检查是否在陆地，如果在陆地则三角化河水
         {
             bool reversed = cell.IncomingRiver == direction;    // 流入河水需要翻转UV
-            TriangulateRiverQuad(centerL, centerR, m.v2, m.v4, cell.RiverSurfaceY, 0.4f, reversed);
-            TriangulateRiverQuad(m.v2, m.v4, e.v2, e.v4, cell.RiverSurfaceY, 0.6f, reversed);
+            TriangulateRiverQuad(centerL, centerR, m.v2, m.v4, cell.RiverSurfaceY, 0.4f, reversed, indices);
+            TriangulateRiverQuad(m.v2, m.v4, e.v2, e.v4, cell.RiverSurfaceY, 0.6f, reversed, indices);
         }
     }
 
@@ -762,8 +746,8 @@ public class HexGridChunk : MonoBehaviour
 
         EdgeVertices m = new EdgeVertices(Vector3.Lerp(center, e.v1, 0.5f), Vector3.Lerp(center, e.v5, 0.5f));
 
-        TriangulateEdgeStrip(m, color1, cell.TerrainTypeIndex, e, color1, cell.TerrainTypeIndex);
-        TriangulateEdgeFan(center, m, cell.TerrainTypeIndex);
+        TriangulateEdgeStrip(m, weights1, cell.Index, e, weights1, cell.Index);
+        TriangulateEdgeFan(center, m, cell.Index);
     }
 
 
@@ -777,23 +761,23 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="y">高度（河水平面）</param>
     /// <param name="v">UV坐标的V</param>
     /// <param name="reversed"></param>
-    void TriangulateRiverQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y, float v, bool reversed)
+    void TriangulateRiverQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y, float v, bool reversed, Vector3 indices)
     {
-        TriangulateRiverQuad(v1, v2, v3, v4, y, y, v, reversed);
+        TriangulateRiverQuad(v1, v2, v3, v4, y, y, v, reversed, indices);
     }
 
     /// <summary>
     /// 三角化河流四边形
     /// </summary>
-    /// <param name="v1"></param>
-    /// <param name="v2"></param>
-    /// <param name="v3"></param>
-    /// <param name="v4"></param>
+    /// <param name="v1">自身六边形内的顶点</param>
+    /// <param name="v2">自身六边形内的顶点</param>
+    /// <param name="v3">邻居六边形内的顶点</param>
+    /// <param name="v4">邻居六边形内的顶点</param>
     /// <param name="y1">自身高度（河水平面）</param>
-    /// <param name="y1">邻居高度（河水平面）</param>
+    /// <param name="y2">邻居高度（河水平面）</param>
     /// <param name="v">UV坐标的V</param>
     /// <param name="reversed"></param>
-    void TriangulateRiverQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y1, float y2, float v, bool reversed)
+    void TriangulateRiverQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y1, float y2, float v, bool reversed, Vector3 indices)
     {
         v1.y = v2.y = y1;
         v3.y = v4.y = y2;
@@ -810,8 +794,12 @@ public class HexGridChunk : MonoBehaviour
         {
             rivers.AddQuadUV(0f, 1f, v, v + 0.2f);          // 流出河流
         }
+
+        rivers.AddQuadCellData(indices, weights1, weights2);
     }
     #endregion
+
+
 
     #region 道路相关
     /// <summary>
@@ -933,17 +921,17 @@ public class HexGridChunk : MonoBehaviour
         // 三角化道路
         Vector3 mL = Vector3.Lerp(roadCenter, e.v1, interpolators.x);
         Vector3 mR = Vector3.Lerp(roadCenter, e.v5, interpolators.y);
-        TriangulateRoad(roadCenter, mL, mR, e, hasRoadThroughEdge);
+        TriangulateRoad(roadCenter, mL, mR, e, hasRoadThroughEdge, cell.Index);
 
         // 如果上一个方向有河流，则三角化一个道路边缘填补空隙
         if (previousHasRiver)
         {
-            TriangulateRoadEdge(roadCenter, center, mL);
+            TriangulateRoadEdge(roadCenter, center, mL, cell.Index);
         }
         // 如果下一个方向有河流，则三角化一个道路边缘填补空隙
         if (nextHasRiver)
         {
-            TriangulateRoadEdge(roadCenter, mR, center);
+            TriangulateRoadEdge(roadCenter, mR, center, cell.Index);
         }
     }
 
@@ -957,7 +945,7 @@ public class HexGridChunk : MonoBehaviour
     void TriangulateWithoutRiver(HexDirection direction, HexCell cell, Vector3 center, EdgeVertices e)
     {
         // 三角化扇形
-        TriangulateEdgeFan(center, e, cell.TerrainTypeIndex);
+        TriangulateEdgeFan(center, e, cell.Index);
 
         // 判断所在六边形是否有道路，如果有则进行三角化
         if (cell.HasRoads)
@@ -968,7 +956,8 @@ public class HexGridChunk : MonoBehaviour
                 Vector3.Lerp(center, e.v1, interpolators.x),        // 计算中点与扇形边缘第一个顶点之间连线的对应插值的点
                 Vector3.Lerp(center, e.v5, interpolators.y),        // 计算中点与扇形边缘最后一个顶点之间连线的对应插值的点
                 e,                                                  // 扇形边缘（弧）
-                cell.HasRoadThroughEdge(direction)                  // 该扇形方向是否有道路
+                cell.HasRoadThroughEdge(direction),                 // 该扇形方向是否有道路
+                cell.Index                                          // 六边形索引
             );
         }
     }
@@ -984,23 +973,30 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="mR">e.v5与center的中点</param>
     /// <param name="e">扇形的弧(五顶点边)</param>
     /// <param name="hasRoadThroughCellEdge">该扇形是否有道路</param>
-    void TriangulateRoad(Vector3 center, Vector3 mL, Vector3 mR, EdgeVertices e,bool hasRoadThroughCellEdge)
+    /// <param name="index">六边形格子索引</param>
+    void TriangulateRoad(Vector3 center, Vector3 mL, Vector3 mR, EdgeVertices e, bool hasRoadThroughCellEdge, int index)
     {
         if (hasRoadThroughCellEdge)
         {
+            Vector3 indices;
+            indices.x = indices.y = indices.z = index;
+
             // 外侧长方形
             Vector3 mC = Vector3.Lerp(mL, mR, 0.5f);
-            TriangulateRoadSegment(mL, mC, mR, e.v2, e.v3, e.v4);
+            TriangulateRoadSegment(mL, mC, mR, e.v2, e.v3, e.v4, weights1, weights1, indices);
 
             // 内侧两个三角形
             roads.AddTriangle(center, mL, mC);
             roads.AddTriangle(center, mC, mR);
             roads.AddTriangleUV(new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(1f, 0f));
             roads.AddTriangleUV(new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f));
+
+            roads.AddTriangleCellData(indices, weights1);
+            roads.AddTriangleCellData(indices, weights1);
         }
         else
         {
-            TriangulateRoadEdge(center, mL, mR);
+            TriangulateRoadEdge(center, mL, mR, index);
         }
     }
 
@@ -1035,10 +1031,14 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="center">六边形中心</param>
     /// <param name="mL">中心与扇形边缘第一个顶点之间的中点</param>
     /// <param name="mR">中心与扇形边缘最后一个顶点之间的中点</param>
-    void TriangulateRoadEdge(Vector3 center, Vector3 mL, Vector3 mR)
+    /// <param name="index">道路所在六边形索引</param>
+    void TriangulateRoadEdge(Vector3 center, Vector3 mL, Vector3 mR, int index)
     {
         roads.AddTriangle(center, mL, mR);
         roads.AddTriangleUV(new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+        Vector3 indices;
+        indices.x = indices.y = indices.z = index;
+        roads.AddTriangleCellData(indices, weights1);
     }
 
     /// <summary>
@@ -1050,14 +1050,21 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="v4"></param>
     /// <param name="v5"></param>
     /// <param name="v6"></param>
-    void TriangulateRoadSegment(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 v5, Vector3 v6)
+    /// <param name="w1">四边形前两个顶点的临近格子占比</param>
+    /// <param name="w2">四边形后两个顶点的临近格子占比</param>
+    /// <param name="indices">附近三个六边形的索引对应x, y, z</param>
+    void TriangulateRoadSegment(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 v5, Vector3 v6, Color w1, Color w2, Vector3 indices)
     {
         roads.AddQuad(v1, v2, v4, v5);
         roads.AddQuad(v2, v3, v5, v6);
         roads.AddQuadUV(0f, 1f, 0f, 0f);
         roads.AddQuadUV(1f, 0f, 0f, 0f);
+        roads.AddQuadCellData(indices, w1, w2);
+        roads.AddQuadCellData(indices, w1, w2);
     }
     #endregion
+
+
 
     #region 水平面相关
 
@@ -1100,6 +1107,9 @@ public class HexGridChunk : MonoBehaviour
 
         // 三角化扇形
         water.AddTriangle(center, c1, c2);
+        Vector3 indices;
+        indices.x = indices.y = indices.z = cell.Index;
+        water.AddTriangleCellData(indices, weights1);
 
         // 三角化水平面桥
         if (direction <= HexDirection.SE)
@@ -1109,6 +1119,9 @@ public class HexGridChunk : MonoBehaviour
             Vector3 e2 = c2 + bridge;
 
             water.AddQuad(c1, c2, e1, e2);
+            
+            indices.y = neighbor.Index;
+            water.AddQuadCellData(indices, weights1, weights2);
 
             // 三角化角落
             if (direction <= HexDirection.E)
@@ -1119,6 +1132,9 @@ public class HexGridChunk : MonoBehaviour
                     return;
                 }
                 water.AddTriangle(c2, e2, c2 + HexMetrics.GetWaterBridge(direction.Next()));
+
+                indices.z = nextNeighbor.Index;
+                water.AddTriangleCellData(indices, weights1, weights2, weights3);
             }
         }
     }
@@ -1144,6 +1160,14 @@ public class HexGridChunk : MonoBehaviour
         water.AddTriangle(center, e1.v3, e1.v4);
         water.AddTriangle(center, e1.v4, e1.v5);
 
+        Vector3 indices;
+        indices.x = indices.z = cell.Index;
+        indices.y = neighbor.Index;
+        water.AddTriangleCellData(indices, weights1);
+        water.AddTriangleCellData(indices, weights1);
+        water.AddTriangleCellData(indices, weights1);
+        water.AddTriangleCellData(indices, weights1);
+
         // 三角化沿岸水平面桥
         Vector3 neighbor_center = neighbor.Position;
         neighbor_center.y = center.y;                   // 保持y与自身等高
@@ -1153,7 +1177,7 @@ public class HexGridChunk : MonoBehaviour
 
         if (cell.HasRiverThroughEdge(direction))
         {
-            TriangulateEstuary(e1, e2, cell.IncomingRiver == direction);
+            TriangulateEstuary(e1, e2, cell.IncomingRiver == direction, indices);
         }
         else
         {
@@ -1165,6 +1189,11 @@ public class HexGridChunk : MonoBehaviour
             waterShore.AddQuadUV(0, 0, 0, 1);
             waterShore.AddQuadUV(0, 0, 0, 1);
             waterShore.AddQuadUV(0, 0, 0, 1);
+            
+            waterShore.AddQuadCellData(indices, weights1, weights2);
+            waterShore.AddQuadCellData(indices, weights1, weights2);
+            waterShore.AddQuadCellData(indices, weights1, weights2);
+            waterShore.AddQuadCellData(indices, weights1, weights2);
         }
 
         // 三角化角落
@@ -1177,6 +1206,9 @@ public class HexGridChunk : MonoBehaviour
 
             waterShore.AddTriangle(e1.v5, e2.v5, v3);
             waterShore.AddTriangleUV(new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, nextNeighbor.IsUnderwater ? 0f : 1f)); // 第三个顶点需要判断是在水面还是陆地，水面v为0，陆地用v为1
+
+            indices.z = nextNeighbor.Index;
+            waterShore.AddTriangleCellData(indices, weights1, weights2, weights3);
         }
     }
 
@@ -1190,7 +1222,7 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="y1">上方所在六边形河流高度</param>
     /// <param name="y2">下方所在六边形河流高度</param>
     /// <param name="waterY">下方水平面高度</param>
-    void TriangulateWaterfallInWater(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4,float y1, float y2, float waterY)
+    void TriangulateWaterfallInWater(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4,float y1, float y2, float waterY, Vector3 indices)
     {
         // 让桥边线顶点高度变成河流高度
         v1.y = v2.y = y1;
@@ -1210,6 +1242,7 @@ public class HexGridChunk : MonoBehaviour
 
         rivers.AddQuadUnperturbed(v1, v2, v3, v4);
         rivers.AddQuadUV(0f, 1f, 0.8f, 1f);
+        rivers.AddQuadCellData(indices, weights1, weights2);
     }
 
     /// <summary>
@@ -1218,12 +1251,15 @@ public class HexGridChunk : MonoBehaviour
     /// <param name="e1">自身纯色区扇形边（弧）</param>
     /// <param name="e2">邻居纯色区扇形边（弧）</param>
     /// <param name="incomingRiver">是否是流入河</param>
-    void TriangulateEstuary(EdgeVertices e1, EdgeVertices e2, bool incomingRiver)
+    /// <param name="indices">临近六边形</param>
+    void TriangulateEstuary(EdgeVertices e1, EdgeVertices e2, bool incomingRiver, Vector3 indices)
     {
         waterShore.AddTriangle(e2.v1, e1.v2, e1.v1);
         waterShore.AddTriangle(e2.v5, e1.v5, e1.v4);
         waterShore.AddTriangleUV(new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 0f));
         waterShore.AddTriangleUV(new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+        waterShore.AddTriangleCellData(indices, weights2, weights1, weights1);                      // 第一个顶点位于邻居六边形内所以用weights2，第二三个顶点位于自身六边形所以用weights1
+        waterShore.AddTriangleCellData(indices, weights2, weights1, weights1);
 
         // 河口顶点 : e2:     v1----v5
         //            e1:      v2--v4
@@ -1237,10 +1273,14 @@ public class HexGridChunk : MonoBehaviour
         estuaries.AddTriangleUV(new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(1f, 1f));
         estuaries.AddQuadUV(new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f));
 
+        // 六边形格子数据
+        estuaries.AddQuadCellData(indices, weights2, weights1, weights2, weights1);
+        estuaries.AddTriangleCellData(indices, weights1, weights2, weights2);
+        estuaries.AddQuadCellData(indices, weights1, weights2);
+
         // 如果是流入河流的河口
         if (incomingRiver)
         {
-
             // uv2 用于匹配河水流动, v为河水流动方向
             // 由于是河口位于桥的下面，所以v坐标是0.8~1， 
             // 由于水平面纯色区占比只有0.6，陆地水面交接处的桥是0.2+0.4，比陆地与陆地交接处的桥（0.2+0.2）大了50%,所以v坐标扩大50%，变成0.8~1.1
