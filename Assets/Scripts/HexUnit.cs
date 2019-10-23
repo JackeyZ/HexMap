@@ -20,7 +20,18 @@ public class HexUnit : MonoBehaviour
 
     HexCell location;                                                           // 位于哪一个六边形上
     HexCell currentTravelLocation;                                              // 移动协程中位于哪个六边形上
-    
+
+    /// <summary>
+    /// 移动速度
+    /// </summary>
+    public int Speed
+    {
+        get
+        {
+            return 24;
+        }
+    }
+
     /// <summary>
     /// 移动单位位于哪一个六边形上
     /// </summary>
@@ -34,13 +45,13 @@ public class HexUnit : MonoBehaviour
         {
             if (location)
             {
-                Grid.DecreaseVisibility(value, visionRange);
+                Grid.DecreaseVisibility(value, VisionRange);
                 // 先清除旧格子对自己的引用
                 location.Unit = null;
             }
             location = value;
             transform.localPosition = value.Position;
-            Grid.IncreaseVisibility(value, visionRange);
+            Grid.IncreaseVisibility(value, VisionRange);
             value.Unit = this;
         }
     }
@@ -62,8 +73,21 @@ public class HexUnit : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 六边形网格地图引用，在HexGrid.Awake中初始化
+    /// </summary>
     public HexGrid Grid { get; set; }                                           // 地图引用
 
+    /// <summary>
+    /// 单位视野
+    /// </summary>
+    public int VisionRange
+    {
+        get
+        {
+            return visionRange;
+        }
+    }
 
     void OnEnable()
     {
@@ -72,8 +96,8 @@ public class HexUnit : MonoBehaviour
             transform.localPosition = location.Position;
             if (currentTravelLocation)
             {
-                Grid.IncreaseVisibility(location, visionRange);
-                Grid.DecreaseVisibility(currentTravelLocation, visionRange);
+                Grid.IncreaseVisibility(location, VisionRange);
+                Grid.DecreaseVisibility(currentTravelLocation, VisionRange);
                 currentTravelLocation = null;
             }
         }
@@ -91,7 +115,7 @@ public class HexUnit : MonoBehaviour
     {
         if (location)
         {
-            Grid.DecreaseVisibility(location, visionRange);
+            Grid.DecreaseVisibility(location, VisionRange);
         }
         location.Unit = null;
         Destroy(gameObject);
@@ -104,7 +128,39 @@ public class HexUnit : MonoBehaviour
     /// <returns></returns>
     public bool IsValidDestination(HexCell cell)
     {
-        return !cell.IsUnderwater && !cell.Unit;              // 目标格子不是水下格子并且没有移动单位
+        return cell.IsExplored && !cell.IsUnderwater && !cell.Unit;              // 目标格子不是水下格子并且没有移动单位
+    }
+
+    /// <summary>
+    /// 得到本移动单位在两个格子之间移动的成本
+    /// </summary>
+    /// <param name="fromCell"></param>
+    /// <param name="toCell"></param>
+    /// <param name="direction"></param>
+    /// <returns></returns>
+    public int GetMoveCost(HexCell fromCell, HexCell toCell, HexDirection direction)
+    {
+        HexEdgeType edgeType = fromCell.GetEdgeType(toCell);
+        if (edgeType == HexEdgeType.Cliff)
+        {
+            return -1;
+        }
+        int moveCost;
+        // 道路行走成本为1
+        if (fromCell.HasRoadThroughEdge(direction))
+        {
+            moveCost = 1;
+        }
+        // 没有道路连通的围墙无法通过
+        else if (fromCell.Walled != toCell.Walled)
+        {
+            return -1;
+        }
+        else {
+            moveCost = edgeType == HexEdgeType.Flat ? 5 : 10;
+            moveCost += toCell.UrbanLevel + toCell.FarmLevel + toCell.PlantLevel;
+        }
+        return moveCost;
     }
 
     #region 移动表现
@@ -129,7 +185,7 @@ public class HexUnit : MonoBehaviour
         //transform.localPosition = c;                                          // Travel()方法里设置Location的时候把单位设置到了目的地，在这里初始化单位位置
         yield return LookAt(pathToTravel[1].Position);
 
-        Grid.DecreaseVisibility(currentTravelLocation ? currentTravelLocation : pathToTravel[0], visionRange);  // 避免发生传送的时候，旧的可见区域没有去掉可见度
+        Grid.DecreaseVisibility(currentTravelLocation ? currentTravelLocation : pathToTravel[0], VisionRange);  // 避免发生传送的时候，旧的可见区域没有去掉可见度
 
         float t = Time.deltaTime * travelSpeed;
         for (int i = 1; i < pathToTravel.Count; i++)
@@ -138,7 +194,7 @@ public class HexUnit : MonoBehaviour
             a = c;
             b = pathToTravel[i - 1].Position;
             c = (b + pathToTravel[i].Position) * 0.5f;
-            Grid.IncreaseVisibility(pathToTravel[i], visionRange);              // 增加下一格周边可见度
+            Grid.IncreaseVisibility(pathToTravel[i], VisionRange);              // 增加下一格周边可见度
             for (; t < 1f; t += Time.deltaTime * travelSpeed)
             {
                 transform.localPosition = Bezier.GetPoint(a, b, c, t);
@@ -147,7 +203,7 @@ public class HexUnit : MonoBehaviour
                 transform.localRotation = Quaternion.LookRotation(dir);
                 yield return null;
             }
-            Grid.DecreaseVisibility(pathToTravel[i], visionRange);              // 减少格子周边可见度
+            Grid.DecreaseVisibility(pathToTravel[i], VisionRange);              // 减少格子周边可见度
             t -= 1;
         }
         currentTravelLocation = null;
@@ -155,7 +211,7 @@ public class HexUnit : MonoBehaviour
         a = c;
         b = location.Position;
         c = b;
-        Grid.IncreaseVisibility(location, visionRange);                         // 增加目的地格子周边可见度
+        Grid.IncreaseVisibility(location, VisionRange);                         // 增加目的地格子周边可见度
         for (; t < 1f; t += Time.deltaTime * travelSpeed)
         {
             transform.localPosition = Bezier.GetPoint(a, b, c, t);

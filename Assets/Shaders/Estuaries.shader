@@ -5,7 +5,7 @@
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
-        _Metallic ("Metallic", Range(0,1)) = 0.0
+        _Specular ("Specular", Color) = (0.2, 0.2, 0.2)
     }
     SubShader
     {
@@ -14,12 +14,15 @@
 
         CGPROGRAM
 		// 没有阴影不需要fullforwardshadows
-        #pragma surface surf Standard alpha vertex:vert
+        #pragma surface surf StandardSpecular alpha vertex:vert
 
         #pragma target 3.0
+		
+		// 定义一个全局关键字（产生两个shader变体）用于判断地图是否处于编辑模式
+		#pragma multi_compile _ HEX_MAP_EDIT_MODE			
 
 		#include "CgIncludes/water.cginc"
-		#include "CgIncludes/HexCellData.cginc"
+		#include "CgIncludes/HexCellData.cginc"					
 
         sampler2D _MainTex;
 
@@ -28,11 +31,11 @@
             float2 uv_MainTex;
             float3 worldPos;
 			float2 riverUV;
-			float visibility;
+			float2 visibility;
         };
 
         half _Glossiness;
-        half _Metallic;
+        half _Specular;
         fixed4 _Color;
 
         UNITY_INSTANCING_BUFFER_START(Props)
@@ -47,11 +50,12 @@
 			float4 cell0 = GetCellData(v, 0);
 			float4 cell1 = GetCellData(v, 1);
 
-			o.visibility = cell0.x * v.color.x + cell1.x * v.color.y;
-			o.visibility = lerp(0.25, 1, o.visibility);
+			o.visibility.x = cell0.x * v.color.x + cell1.x * v.color.y;
+			o.visibility.x = lerp(0.25, 1, o.visibility.x);
+			o.visibility.y = cell0.y * v.color.x + cell1.y * v.color.y;
 		}
 
-        void surf (Input IN, inout SurfaceOutputStandard o)
+        void surf (Input IN, inout SurfaceOutputStandardSpecular o)
         {
 			float shore = IN.uv_MainTex.y;
 			float foam = Foam(shore, IN.worldPos.xz, _MainTex);			// 泡沫（靠岸波、离岸波）
@@ -65,11 +69,13 @@
 			float water = lerp(shoreWater, river, IN.uv_MainTex.x);		// 线性插值，融合两种波纹（IN.uv_MainTex.x瀑布下方为1，扩散外围为0），
 																		// 这里插值之后代表越靠近瀑布river波纹越明显，shoreWater波纹渐渐消失
  
+			float explored = IN.visibility.y;
 			fixed4 c = saturate(_Color + water);
-			o.Albedo = c.rgb * IN.visibility;
-			o.Metallic = _Metallic;
+			o.Albedo = c.rgb * IN.visibility.x;
+			o.Specular = _Specular * explored;
+			o.Occlusion = explored;
 			o.Smoothness = _Glossiness;
-			o.Alpha = c.a;
+			o.Alpha = c.a * explored;
         }
         ENDCG
     }

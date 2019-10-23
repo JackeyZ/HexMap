@@ -213,6 +213,17 @@ public class HexMapEditor : MonoBehaviour
 
         //hexGrid.ShowUI(!toggle);
         enabled = toggle;
+
+        hexGrid.ShowUI(!toggle);
+        hexGrid.ClearPath();
+        if (toggle)
+        {
+            Shader.EnableKeyword("HEX_MAP_EDIT_MODE");
+        }
+        else
+        {
+            Shader.DisableKeyword("HEX_MAP_EDIT_MODE");
+        }
     }
  
 

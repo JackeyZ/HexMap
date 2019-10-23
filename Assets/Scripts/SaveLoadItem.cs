@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 
 /// <summary>
-/// 名称：
+/// 名称：加载地图面板的Item
 /// 作用：
 /// </summary>
 public class SaveLoadItem : MonoBehaviour

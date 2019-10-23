@@ -15,6 +15,7 @@ public class HexCell : MonoBehaviour
 
     public HexGridChunk chunk;                  // 所属网格块的引用
 
+
     /// <summary>
     /// 地图数据纹理管理器引用， hexGrin里CreateCell的时候进行初始化
     /// </summary>
@@ -29,6 +30,25 @@ public class HexCell : MonoBehaviour
     /// 格子上的移动单位（暂时一个格子只允许有一个单位）
     /// </summary>
     public HexUnit Unit { get; set; }
+
+    /// <summary>
+    /// 是否被探索过， set方法为私有，创建地图的时候初始化
+    /// </summary>
+    public bool IsExplored {
+        get{
+            return Explorable && explored;
+        }
+
+        private set {
+            explored = value;
+        }
+    }
+    private bool explored;                      // 是否被探索过
+
+    /// <summary>
+    /// 是否可被探索
+    /// </summary>
+    public bool Explorable { get; set; }
 
     bool hasIncomingRiver, hasOutgoingRiver;
 
@@ -57,7 +77,7 @@ public class HexCell : MonoBehaviour
 
     int searchPhase;
 
-    int visibility;                 // 是否可见（>0表示可见）
+    int visibility;                 // 可见性，记录有多少个单位看着自己
 
     /// <summary>
     /// 偏移坐标（X,Y,Z）
@@ -101,7 +121,13 @@ public class HexCell : MonoBehaviour
         {
             if (elevation != value)
             {
+                int originalViewElevation = ViewElevation;
                 elevation = value;
+                // 高度改变的时候判断视野高度是否有改动
+                if (ViewElevation != originalViewElevation)
+                {
+                    ShaderData.ViewElevationChanged();
+                }
 
                 // 刷新六边形GameObject的高度
                 RefreshPosition();      
@@ -124,7 +150,18 @@ public class HexCell : MonoBehaviour
     }
 
     /// <summary>
-    /// 当前格子寻路搜索进程
+    /// 视野高度
+    /// </summary>
+    public int ViewElevation
+    {
+        get
+        {
+            return elevation >= waterLevel ? elevation : waterLevel;
+        }
+    }
+
+    /// <summary>
+    /// 当前格子寻路搜索进程，2代表已进入待访问队列，3表示已经访问过了
     /// </summary>
     public int SearchPhase
     {
@@ -177,6 +214,7 @@ public class HexCell : MonoBehaviour
 
     /// <summary>
     /// 用于存储寻路时到终点的估计距离，若该值为0，则说明是一个普通的广度优先搜索寻路（非启发式寻路）
+    /// 每个格子估计距离用1（因为有道路的格子，移动成本为1），如果用5，则可能高估剩余距离而导致寻路不是最短路径。
     /// </summary>
     public int SearchHeuristic { get; set; }
 
@@ -381,7 +419,14 @@ public class HexCell : MonoBehaviour
             {
                 return;
             }
+
+            int originalViewElevation = ViewElevation;
             waterLevel = value;
+            // 水平面更变之后，判断视野高度是否有更变
+            if (ViewElevation != originalViewElevation)
+            {
+                ShaderData.ViewElevationChanged();
+            }
 
             // 检查河流有效性
             ValidateRivers();
@@ -816,9 +861,12 @@ public class HexCell : MonoBehaviour
             }
         }
         writer.Write((byte)roadFlags);
+
+        // 探索状态（是否被探索过）数据
+        writer.Write(IsExplored);
     }
 
-    public void Load(BinaryReader reader)
+    public void Load(BinaryReader reader, int header)
     {
         // 按照保存顺序读取整形数据
         terrainTypeIndex = reader.ReadByte();
@@ -863,6 +911,10 @@ public class HexCell : MonoBehaviour
         {
             roads[i] = (roadFlags & (1 << i)) != 0;         // 1左移i位，然后按位与，提取roadFlags对应位的数据。按位与： 0010 0110 & 0000 0010 = 0000 0010
         }                                                                                                              //0010 0110 & 0000 1000 = 0000 0000
+
+        // 探索状态（是否被探索过）数据
+        IsExplored = header >= 3 ? reader.ReadBoolean() : false;    // 存档版本3以上才有探索状态数据
+        ShaderData.RefreshVisibility(this);
     }
     #endregion
 
@@ -929,7 +981,7 @@ public class HexCell : MonoBehaviour
 
     #region 可见性（战争迷雾）
     /// <summary>
-    /// 是否可见
+    /// 是否被附近单位看到
     /// </summary>
     public bool IsVisible
     {
@@ -960,6 +1012,7 @@ public class HexCell : MonoBehaviour
         Visibility += 1;
         if (Visibility == 1)
         {
+            IsExplored = true;
             ShaderData.RefreshVisibility(this);
         }
     }
@@ -979,7 +1032,18 @@ public class HexCell : MonoBehaviour
             ShaderData.RefreshVisibility(this);
         }
     }
-
+    
+    /// <summary>
+    /// 重置自身格子可见性，重置为不可见
+    /// </summary>
+    public void ResetVisibility()
+    {
+        if (visibility > 0)
+        {
+            visibility = 0;
+            ShaderData.RefreshVisibility(this);
+        }
+    }
     #endregion
 
 }

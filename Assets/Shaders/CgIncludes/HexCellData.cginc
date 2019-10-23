@@ -3,6 +3,15 @@
 sampler2D _HexCellData;							// 单元格数据纹理
 float4 _HexCellData_TexelSize;					// 纹理大小
  
+
+// 在编辑模式忽略可见性（战争迷雾）的影响
+float4 FilterCellData(float4 data) {
+    #if defined(HEX_MAP_EDIT_MODE)
+        data.xy = 1;																	// x储存了是否被单位看见，y储存了是否被单位探索过
+    #endif
+    return data;
+}
+
  // 得到一个六边形格子的数据（a是地形类型）
  // v.texcoord2记录着顶点相邻的三个格子的索引， index表示是这三个格子的第几个
 float4 GetCellData (appdata_full v, int index) {
@@ -22,7 +31,7 @@ float4 GetCellData (appdata_full v, int index) {
 	
     float4 data = tex2Dlod(_HexCellData, float4(uv, 0, 0));								// 没有mipmap所以z和w填0
 	data.w *= 255;																		// 0~1转换成0~255
-	return data;
+	return FilterCellData(data);
 }
 
 // cellDataCoordinates.x 表示格子在第几列， cellDataCoordinates.y 表示格子在第几行
@@ -30,6 +39,6 @@ float4 GetCellData (float2 cellDataCoordinates) {
     float2 uv = cellDataCoordinates + 0.5;												// +0.5是为了取到一个像素的中心而不是边缘，避免取错颜色
     uv.x *= _HexCellData_TexelSize.x;
     uv.y *= _HexCellData_TexelSize.y;
-    return tex2Dlod(_HexCellData, float4(uv, 0, 0));
+    return FilterCellData(tex2Dlod(_HexCellData, float4(uv, 0, 0)));
 }
 #endif

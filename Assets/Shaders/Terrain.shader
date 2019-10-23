@@ -5,8 +5,10 @@
 		_NormalTex("Terrain Normal Array", 2DArray) = "Blue" {}
 		_GridTex ("Grid Texture", 2D)= "white" {}										// 网格贴图
 		_Glossiness("Smoothness", Range(0,1)) = 0.5
-		_Metallic("Metallic", Range(0,1)) = 0.0
+		//_Metallic("Metallic", Range(0,1)) = 0.0
+		_Specular ("Specular", Color) = (0.2, 0.2, 0.2)
 		_NormalMapDegree("法线贴图表现程度", Range(0, 1)) = 1
+		_BackgroundColor ("Background Color", Color) = (0,0,0)							// 背景颜色
 	}
 	SubShader
 	{
@@ -14,27 +16,32 @@
 		LOD 200
 		
 		CGPROGRAM
-			#pragma surface surf Standard fullforwardshadows vertex:vert
+			#pragma surface surf StandardSpecular fullforwardshadows vertex:vert
 			#pragma target 3.5
-			// 导入获得格子数据的文件
-			#include "CgIncludes/HexCellData.cginc" 
 
 			// 定义一个全局关键字（产生两个shader变体）用于切换是否显示网格，C#中使用Material.EnableKeyword("GRID_ON");和Material.DisableKeyword("GRID_ON");切换
-			#pragma multi_compile _ GRID_ON												
+			#pragma multi_compile _ GRID_ON				
+			// 定义一个全局关键字（产生两个shader变体）用于判断地图是否处于编辑模式
+			#pragma multi_compile _ HEX_MAP_EDIT_MODE							
+
+			// 导入获得格子数据的文件
+			#include "CgIncludes/HexCellData.cginc" 	
 			
 			UNITY_DECLARE_TEX2DARRAY(_MainTex);											// 声明Texture数组Sampler变量。
 			UNITY_DECLARE_TEX2DARRAY(_NormalTex);										// 声明Texture数组Sampler变量。
 			sampler2D _GridTex;
 			half _Glossiness;
-			half _Metallic;
+			//half _Metallic;
+			fixed3 _Specular;
 			fixed4 _Color;
 			float _NormalMapDegree;
+			half3 _BackgroundColor;
 
 			struct Input {
 				float4 color : COLOR;
 				float3 worldPos;				// 顶点世界坐标
 				float3 terrain;					// 地形类型下标
-				float3 visibility;				// 是否可见（战争迷雾）1表示可见，0表示不可见
+				float4 visibility;				// 是否可见（战争迷雾）1表示可见，0表示不可见，xyz代表附近三个地形的可见性，w表示探索状态（是否被探索过）
 			};
  
 			void vert (inout appdata_full v, out Input data) {
@@ -50,11 +57,12 @@
 				data.terrain.y = cell1.w;
 				data.terrain.z = cell2.w;		
 				
-				// 是否可见
+				// 附近三个地形是否可见
 				data.visibility.x = cell0.x;
 				data.visibility.y = cell1.x;
 				data.visibility.z = cell2.x;
-				data.visibility = lerp(0.25, 1, data.visibility);
+				data.visibility.xyz = lerp(0.25, 1, data.visibility.xyz);
+				data.visibility.w = cell0.y * v.color.x + cell1.y * v.color.y + cell2.y * v.color.z;	// 用附近三个格子探索状态乘以三个格子对顶点的权重，的到当前顶点的探索状态
 			}
 
 			float4 GetTerrainColor (Input IN, int index) {
@@ -73,7 +81,7 @@
 			}
 
 			// 表面着色器，规定参数1是Input结构，参数2是inout的SurfaceOutput结构。
-			void surf (Input IN, inout SurfaceOutputStandard o) {
+			void surf (Input IN, inout SurfaceOutputStandardSpecular o) {
                 fixed4 c = GetTerrainColor(IN, 0) + GetTerrainColor(IN, 1) + GetTerrainColor(IN, 2);		// 读取三个地形的颜色然后叠加
 				fixed4 normal;
 				if(_NormalMapDegree != 0)
@@ -89,9 +97,12 @@
 					grid = tex2D(_GridTex, gridUV);														// 网格线
 				#endif
 
-                o.Albedo = c.rgb * _Color * grid;														// 纹理颜色与设置的颜色融合
-                o.Metallic = _Metallic;																	// 金属感
+				float explored = IN.visibility.w;														// 探索状态（是否被探索过）
+                o.Albedo = c.rgb * _Color * grid * explored;											// 纹理颜色与设置的颜色融合
+                o.Specular = _Specular * explored;														// 高光
                 o.Smoothness = _Glossiness;																// 平滑
+				o.Occlusion = explored;																	// 遮挡反射
+				o.Emission = _BackgroundColor * (1 -  explored);										// 自发光
                 o.Alpha = c.a;				
 				if(_NormalMapDegree != 0)
 				{

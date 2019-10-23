@@ -45,6 +45,7 @@ public class HexGrid : MonoBehaviour
             HexMetrics.noiseSource = noiseSource;
             HexMetrics.InitializeHashGrid(seed);
             HexUnit.unitPrefab = unitPrefab;
+            ResetVisibility();
         }
     }
 
@@ -53,7 +54,8 @@ public class HexGrid : MonoBehaviour
         HexMetrics.noiseSource = noiseSource;
         HexMetrics.InitializeHashGrid(seed);
         HexUnit.unitPrefab = unitPrefab;
-        cellShaderData = gameObject.AddComponent<HexCellShaderData>(); 
+        cellShaderData = gameObject.AddComponent<HexCellShaderData>();
+        cellShaderData.Grid = this;
         CreateMap(cellCountX, cellCountZ);
     }
     public bool CreateMap(int x, int z)
@@ -120,9 +122,12 @@ public class HexGrid : MonoBehaviour
 
     public void ShowUI(bool showUI)
     {
-        foreach (var item in cells)
+        if (cells != null)
         {
-            item.ShowUI = showUI;
+            foreach (var item in cells)
+            {
+                item.ShowUI = showUI;
+            }
         }
     }
 
@@ -206,6 +211,7 @@ public class HexGrid : MonoBehaviour
         cell.Coordinates = HexCoordinates.FromOffsetCoordinates(x, z);
         cell.ShaderData = cellShaderData;
         cell.Index = i;
+        cell.Explorable = x > 0 && z > 0 && x < cellCountX - 1 && z < cellCountZ - 1;       // 不在边缘的六边形才允许探索
 
         #region 设置邻里关系
         // 第二列开始往西边连接
@@ -290,6 +296,10 @@ public class HexGrid : MonoBehaviour
     /// <param name="header">地图版本号，可根据不同版本号作对应操作</param>
     public void Load(BinaryReader reader, int header)
     {
+        bool originalImmediateMode = cellShaderData.ImmediateMode;
+        // 战争迷雾立即过渡
+        cellShaderData.ImmediateMode = true;
+
         // 清理之前的寻路路径
         ClearPath();
 
@@ -310,7 +320,7 @@ public class HexGrid : MonoBehaviour
         }
         for (int i = 0; i < cells.Length; i++)
         {
-            cells[i].Load(reader);
+            cells[i].Load(reader, header);
         }
 
         // 存档版本2以上才有移动单位数据
@@ -323,6 +333,9 @@ public class HexGrid : MonoBehaviour
                 HexUnit.Load(reader, this);
             }
         }
+
+        // 恢复战争迷雾过渡模式
+        cellShaderData.ImmediateMode = originalImmediateMode;
     }
     #endregion
 
@@ -344,23 +357,25 @@ public class HexGrid : MonoBehaviour
     /// <param name="fromCell">当前所在格子</param>
     /// <param name="toCell">目标格子</param>
     /// <param name="speed">单回合移动预算</param>
-    public void FindPath(HexCell fromCell, HexCell toCell, int speed)
+    public void FindPath(HexCell fromCell, HexCell toCell, HexUnit unit)
     {
         //System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
         //sw.Start();
 
-        ClearPath();                                                    // 清除上一次的路径
+        ClearPath();                                                        // 清除上一次的路径
         currentPathFrom = fromCell;
         currentPathTo = toCell;
-        currentPathExists = Search(fromCell, toCell, speed);
-        ShowPath(speed);                                                // 展示路径
+        currentPathExists = Search(fromCell, toCell, unit);
+        ShowPath(unit.Speed);                                                // 展示路径
 
         //sw.Stop();
         //Debug.Log(sw.ElapsedMilliseconds);
     }
 
-    bool Search(HexCell fromCell, HexCell toCell, int speed)
+    bool Search(HexCell fromCell, HexCell toCell, HexUnit unit)
     {
+        int speed = unit.Speed;
+
         searchFrontierPhase += 2;
         if (searchFrontier == null)
         {
@@ -378,7 +393,7 @@ public class HexGrid : MonoBehaviour
         while (searchFrontier.Count > 0)
         {
             HexCell current = searchFrontier.Dequeue();
-            current.SearchPhase += 1;
+            current.SearchPhase += 1;                                               // +1，由待访问阶段，进入到已访问阶段
 
             // 判断是否找到目标格子
             if (current == toCell)
@@ -397,47 +412,20 @@ public class HexGrid : MonoBehaviour
                 {
                     continue;
                 }
-
-                // 跳过在水下的格子
-                if (neighbor.IsUnderwater)
+                if (!unit.IsValidDestination(neighbor))
                 {
                     continue;
                 }
 
-                // 跳过已经有单位占据的格子
-                if (neighbor.Unit)
+                int moveCost = unit.GetMoveCost(current, neighbor, d);              // 当前格子到邻居的移动成本
+                if(moveCost < 0)
                 {
                     continue;
                 }
 
-                HexEdgeType edgeType = current.GetEdgeType(neighbor);
-
-                // 跳过陡坡
-                if (current.GetEdgeType(neighbor) == HexEdgeType.Cliff)
-                {
-                    continue;
-                }
-
-                int moveCost;
-
-                // 道路行走成本为1
-                if (current.HasRoadThroughEdge(d))
-                {
-                    moveCost = 1;
-                }
-                // 跳过没有道路连通的围墙
-                else if (current.Walled != neighbor.Walled)
-                {
-                    continue;
-                }
-                else
-                {
-                    moveCost = edgeType == HexEdgeType.Flat ? 5 : 10;
-                    moveCost += neighbor.UrbanLevel + neighbor.FarmLevel + neighbor.PlantLevel;
-                }
 
                 int distance = current.Distance + moveCost;
-                int turn = (distance - 1) / speed;    // 用刚得到的邻居距离，算出起点出到达邻居所需的回合数
+                int turn = (distance - 1) / speed;              // 用刚得到的邻居距离，算出起点出到达邻居所需的回合数， -1是为了避免distance与speed相同时，得到turn为1，但其实本回合就能到达
                 
                 // 判断该邻居是否在下一个回合才能到达
                 if (turn > currentTurn)
@@ -590,9 +578,12 @@ public class HexGrid : MonoBehaviour
             searchFrontier.Clear();
         }
 
+        //A*
+        range += fromCell.ViewElevation;                    // 在原本的视野范围加上地形增益的范围
         fromCell.SearchPhase = searchFrontierPhase;
         fromCell.Distance = 0;
         searchFrontier.Enqueue(fromCell);
+        HexCoordinates fromCoordinates = fromCell.Coordinates;
         while (searchFrontier.Count > 0)
         {
             HexCell current = searchFrontier.Dequeue();
@@ -606,7 +597,15 @@ public class HexGrid : MonoBehaviour
                     continue;
                 }
 
-                int distance = current.Distance + 1;    
+                int distance = current.Distance + 1;
+
+                if (distance + neighbor.ViewElevation > range 
+                    || distance > fromCoordinates.DistanceTo(neighbor.Coordinates)         // 如果距离 > 最短路径，则表示原点到该点的路径不是直线（不能直接观察到），所以跳过
+                    || !neighbor.Explorable)                                               // 如果是不可探索网格，可阻挡视野，所以跳过 
+                {
+                    continue;
+                }
+
                 if (distance > range)
                 {
                     continue;
@@ -637,6 +636,7 @@ public class HexGrid : MonoBehaviour
     /// <param name="range"></param>
     public void IncreaseVisibility(HexCell fromCell, int range)
     {
+        // 找到附近的可视格子
         List<HexCell> cells = GetVisibleCells(fromCell, range);
         for (int i = 0; i < cells.Count; i++)
         {
@@ -658,6 +658,24 @@ public class HexGrid : MonoBehaviour
             cells[i].DecreaseVisibility();
         }
         ListPool<HexCell>.Add(cells);
+    }
+
+    /// <summary>
+    /// 重置所有格子视野可见性
+    /// </summary>
+    public void ResetVisibility()
+    {
+        // 先所有格子重置为不可见
+        for (int i = 0; i < cells.Length; i++)
+        {
+            cells[i].ResetVisibility();
+        }
+        // 根据移动单位重新计算格子可见性
+        for (int i = 0; i < units.Count; i++)
+        {
+            HexUnit unit = units[i];
+            IncreaseVisibility(unit.Location, unit.VisionRange);
+        }
     }
     #endregion
 }
