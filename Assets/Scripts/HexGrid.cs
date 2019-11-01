@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 /// <summary>
-/// 管理整个六边形网格地图
+/// 管理整个六边形网格地图（包括地图的创建、存储和加载，地图视野管理，移动单位管理（增加移除更变），网格块的创建）
 /// </summary>
 public class HexGrid : MonoBehaviour
 {
@@ -28,7 +28,7 @@ public class HexGrid : MonoBehaviour
 
     HexCellPriorityQueue searchFrontier;                     // 寻路的边界队列，用于存储未访问的边界格子
 
-    int searchFrontierPhase;                                 // 搜索进程
+    int searchFrontierPhase;                                 // 搜索进程（每进行一次搜索则+2）
 
     HexCell currentPathFrom, currentPathTo;                  // 用于记录寻路起点与终点
 
@@ -147,6 +147,11 @@ public class HexGrid : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 根据世界坐标获取六边形格子
+    /// </summary>
+    /// <param name="position">世界坐标</param>
+    /// <returns></returns>
     public HexCell GetCell(Vector3 position)
     {
         // 世界坐标转换相对坐标
@@ -160,6 +165,11 @@ public class HexGrid : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// 根据六边形偏移坐标获取六边形格子
+    /// </summary>
+    /// <param name="coordinates">偏移坐标</param>
+    /// <returns></returns>
     public HexCell GetCell(HexCoordinates coordinates)
     {
         int z = coordinates.Z;
@@ -173,6 +183,27 @@ public class HexGrid : MonoBehaviour
             return null;
         }
         return cells[x + z * cellCountX];
+    }
+
+    /// <summary>
+    /// 根据横向下标和纵向下标获取六边形格子
+    /// </summary>
+    /// <param name="xOffset">x坐标（横向偏移）</param>
+    /// <param name="yOffset">y坐标（纵向偏移）</param>
+    /// <returns></returns>
+    public HexCell GetCell(int xOffset, int yOffset)
+    {
+        return cells[xOffset + yOffset * cellCountX];
+    }
+
+    /// <summary>
+    /// 根据六边形格子数组下标，获取六边形格子
+    /// </summary>
+    /// <param name="cellIndex"></param>
+    /// <returns></returns>
+    public HexCell GetCell(int cellIndex)
+    {
+        return cells[cellIndex];
     }
 
     /// <summary>

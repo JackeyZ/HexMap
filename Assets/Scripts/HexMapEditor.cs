@@ -2,6 +2,9 @@
 using UnityEngine.EventSystems;
 using System.IO;
 
+/// <summary>
+/// 地图编辑UI的逻辑脚本
+/// </summary>
 public class HexMapEditor : MonoBehaviour
 {
     public HexGrid hexGrid;
@@ -57,7 +60,7 @@ public class HexMapEditor : MonoBehaviour
     void Awake()
     {
         ShowGrid(false);            // 默认不显示网格
-        SetEditMode(false);         // 默认不在编辑模式
+        SetEditMode(true);          // 默认不在编辑模式
     }
 
     void Update()

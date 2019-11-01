@@ -10,6 +10,10 @@ public class NewMapMenu : MonoBehaviour
 {
     public HexGrid hexGrid;
 
+    public HexMapGenerator mapGenerator;
+
+    private bool generateMaps = true;
+
     public void Open()
     {
         gameObject.SetActive(true);
@@ -52,8 +56,24 @@ public class NewMapMenu : MonoBehaviour
     /// <param name="z"></param>
     void CreateMap(int x, int z)
     {
-        hexGrid.CreateMap(x, z);
+        if (generateMaps)
+        {
+            mapGenerator.GenerateMap(x, z); // 生成随机地图
+        }
+        else
+        {
+            hexGrid.CreateMap(x, z);        // 生成默认地图
+        }
         HexMapCamera.ValidatePosition();    // 验证地图边界，矫正摄像机位置
         Close();
+    }
+    
+    /// <summary>
+    /// 设置是否随机生成地图
+    /// </summary>
+    /// <param name="toggle"></param>
+    public void ToggleMapGeneration(bool toggle)
+    {
+        generateMaps = toggle;
     }
 }

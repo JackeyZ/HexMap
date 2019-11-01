@@ -161,7 +161,8 @@ public class HexCell : MonoBehaviour
     }
 
     /// <summary>
-    /// 当前格子寻路搜索进程，2代表已进入待访问队列，3表示已经访问过了
+    /// 当前格子寻路搜索进程，默认状态→进入待访问队列状态→已经访问状态
+    ///              （当前搜索阶段-1）→（当前搜索阶段）→（当前搜索阶段 + 1），而当前搜索阶段（searchFrontierPhase）。每新一次搜索会+2
     /// </summary>
     public int SearchPhase
     {
@@ -821,7 +822,7 @@ public class HexCell : MonoBehaviour
     {
         // 整形数据（把0~255的整形转换成byte以节省空间）
         writer.Write((byte)terrainTypeIndex);                   // 地形类型
-        writer.Write((byte)(elevation + 100));                  // 高度 +100是为了把负数高度偏移成整数，转换成byte才不会出错
+        writer.Write((byte)(elevation + 127));                  // 高度 +127是为了把负数高度偏移成整数，转换成byte才不会出错
         writer.Write((byte)waterLevel);                         // 水平面高度
         writer.Write((byte)urbanLevel);                         // 城市等级
         writer.Write((byte)farmLevel);                          // 农场等级
@@ -872,7 +873,7 @@ public class HexCell : MonoBehaviour
         terrainTypeIndex = reader.ReadByte();
         ShaderData.RefreshTerrain(this);
 
-        elevation = reader.ReadByte() - 100;
+        elevation = reader.ReadByte() - 127;
         waterLevel = reader.ReadByte();
         urbanLevel = reader.ReadByte();
         farmLevel = reader.ReadByte();
