@@ -264,10 +264,18 @@ public static class HexMetrics
         return HexEdgeType.Cliff;
     }
 
-    public static Vector4 SampleNoise(Vector3 position)
+    public static Vector4 SampleNoise(Vector3 position, bool useCellPerturbStrength = true)
     {
         // 参数为0~1之间（UV坐标）
-        return noiseSource.GetPixelBilinear(position.x * noiseScale, position.z * noiseScale) * cellPerturbStrength;
+        Vector4 noise = noiseSource.GetPixelBilinear(position.x * noiseScale, position.z * noiseScale);
+        if (useCellPerturbStrength)
+        {
+            return noise * cellPerturbStrength;
+        }
+        else
+        {
+            return noise;
+        }
     }
 
     /// <summary>

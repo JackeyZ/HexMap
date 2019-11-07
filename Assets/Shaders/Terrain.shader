@@ -9,6 +9,7 @@
 		_Specular ("Specular", Color) = (0.2, 0.2, 0.2)
 		_NormalMapDegree("法线贴图表现程度", Range(0, 1)) = 1
 		_BackgroundColor ("Background Color", Color) = (0,0,0)							// 背景颜色
+		[Toggle(SHOW_MAP_DATA)] _ShowMapData ("Show Map Data", Float) = 0				// 是否显示数据而不显示贴图
 	}
 	SubShader
 	{
@@ -23,6 +24,8 @@
 			#pragma multi_compile _ GRID_ON				
 			// 定义一个全局关键字（产生两个shader变体）用于判断地图是否处于编辑模式
 			#pragma multi_compile _ HEX_MAP_EDIT_MODE							
+			// 是否显示数据而不显示贴图
+			#pragma shader_feature SHOW_MAP_DATA
 
 			// 导入获得格子数据的文件
 			#include "CgIncludes/HexCellData.cginc" 	
@@ -42,6 +45,10 @@
 				float3 worldPos;				// 顶点世界坐标
 				float3 terrain;					// 地形类型下标
 				float4 visibility;				// 是否可见（战争迷雾）1表示可见，0表示不可见，xyz代表附近三个地形的可见性，w表示探索状态（是否被探索过）
+
+				#if defined(SHOW_MAP_DATA)
+					float mapData;
+				#endif
 			};
  
 			void vert (inout appdata_full v, out Input data) {
@@ -63,6 +70,10 @@
 				data.visibility.z = cell2.x;
 				data.visibility.xyz = lerp(0.25, 1, data.visibility.xyz);
 				data.visibility.w = cell0.y * v.color.x + cell1.y * v.color.y + cell2.y * v.color.z;	// 用附近三个格子探索状态乘以三个格子对顶点的权重，的到当前顶点的探索状态
+
+				#if defined(SHOW_MAP_DATA)
+					data.mapData = cell0.z * v.color.x + cell1.z * v.color.y + cell2.z * v.color.z;		// cell0.z储存了地图格子数据
+				#endif
 			}
 
 			float4 GetTerrainColor (Input IN, int index) {
@@ -99,6 +110,9 @@
 
 				float explored = IN.visibility.w;														// 探索状态（是否被探索过）
                 o.Albedo = c.rgb * _Color * grid * explored;											// 纹理颜色与设置的颜色融合
+				#if defined(SHOW_MAP_DATA)
+					o.Albedo = IN.mapData * grid;
+				#endif
                 o.Specular = _Specular * explored;														// 高光
                 o.Smoothness = _Glossiness;																// 平滑
 				o.Occlusion = explored;																	// 遮挡反射

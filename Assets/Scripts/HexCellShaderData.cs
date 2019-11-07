@@ -92,6 +92,7 @@ public class HexCellShaderData : MonoBehaviour
             cellTextureData[index].r = cell.IsVisible ? (byte)255 : (byte)0;           // 储存是否被单位看见
             cellTextureData[index].g = cell.IsExplored ? (byte)255 : (byte)0;          // 储存是否被单位探索过
         }
+        // 判断是否仍在过渡中
         else if (cellTextureData[index].b != 255)
         {
             // 设置b值为255，表示正在过渡中（节省性能，避免每次Add都遍历列表查找是否重复）
@@ -176,5 +177,17 @@ public class HexCellShaderData : MonoBehaviour
         }
         cellTextureData[index] = data;
         return stillUpdating;
+    }
+
+    /// <summary>
+    /// 设置地图格子展示数据, 设置一个0~1的值在shader中以灰度的形式表现在地图上，0为黑色，1为白色
+    /// </summary>
+    /// <param name="cell"></param>
+    /// <param name="data"></param>
+    public void SetMapData(HexCell cell, float data)
+    {
+        data = Mathf.Clamp(data, 0, 1);
+        cellTextureData[cell.Index].b = (byte)(data * 254f);        // 最大值用254是由于255被用于判断格子是否在明暗过渡中
+        enabled = true;
     }
 }

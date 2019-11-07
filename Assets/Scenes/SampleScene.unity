@@ -1574,11 +1574,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: HexMapCamera
       objectReference: {fileID: 0}
-    - target: {fileID: 4553599515014139464, guid: cdd41740f7cb1f443927e922322f0eda,
-        type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 4553599515014139469, guid: cdd41740f7cb1f443927e922322f0eda,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -1641,13 +1636,13 @@ PrefabInstance:
       objectReference: {fileID: 689367569}
     - target: {fileID: 4553599515014139466, guid: cdd41740f7cb1f443927e922322f0eda,
         type: 3}
-      propertyPath: stickMinZoom
-      value: -450
+      propertyPath: swivelMaxZoom
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 4553599515014139466, guid: cdd41740f7cb1f443927e922322f0eda,
         type: 3}
       propertyPath: stickMaxZoom
-      value: -145
+      value: -75
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cdd41740f7cb1f443927e922322f0eda, type: 3}
@@ -1674,6 +1669,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: HexMapGenerator
+      objectReference: {fileID: 0}
+    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
+        type: 3}
+      propertyPath: grid
+      value: 
+      objectReference: {fileID: 689367569}
+    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
+        type: 3}
+      propertyPath: lowTemperature
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9121666843689752628, guid: bb0e791ef8e610f4fac8760cf33fbd10,
         type: 3}
@@ -1729,26 +1734,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
-        type: 3}
-      propertyPath: grid
-      value: 
-      objectReference: {fileID: 689367569}
-    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
-        type: 3}
-      propertyPath: seed
-      value: 1957632474
-      objectReference: {fileID: 0}
-    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
-        type: 3}
-      propertyPath: useFixedSeed
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3716211989020102401, guid: bb0e791ef8e610f4fac8760cf33fbd10,
-        type: 3}
-      propertyPath: erosionPercentage
-      value: 25
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bb0e791ef8e610f4fac8760cf33fbd10, type: 3}

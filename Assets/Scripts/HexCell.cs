@@ -295,7 +295,7 @@ public class HexCell : MonoBehaviour
     }
 
     /// <summary>
-    /// 河流流入方向
+    /// 河流流入方向, 默认值为东北
     /// </summary>
     public HexDirection IncomingRiver
     {
@@ -624,6 +624,15 @@ public class HexCell : MonoBehaviour
         return difference >= 0 ? difference : -difference;
     }
 
+    /// <summary>
+    /// 设置地图展示数据，显示在shader上
+    /// </summary>
+    /// <param name="data"></param>
+    public void SetMapData(float data)
+    {
+        ShaderData.SetMapData(this, data);
+    }
+
     #region 河流相关
     /// <summary>
     /// 移除流出河流
@@ -778,6 +787,7 @@ public class HexCell : MonoBehaviour
     }
     #endregion
 
+    #region 刷新网格
     /// <summary>
     /// 只刷新本六边形所在的网格块
     /// </summary>
@@ -816,6 +826,7 @@ public class HexCell : MonoBehaviour
             }
         }
     }
+    #endregion
 
     #region 地图储存和加载相关
     public void Save(BinaryWriter writer)
